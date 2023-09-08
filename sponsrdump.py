@@ -415,7 +415,7 @@ class SponsrDumper:
                 f"{post_inf['__idx']:>03}. "
                 f"{file_inf['__idx']:>03}. "
                 f"{post_inf['post_title'].rstrip('.')}"
-                f"{Path(file_inf['file_title']).suffix}"
+                f"{Path(file_inf['file_title']).suffix}".replace(':', '')
             )
         )
 
