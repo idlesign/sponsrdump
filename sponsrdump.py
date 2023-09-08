@@ -412,6 +412,7 @@ class SponsrDumper:
 
         func_filename = func_filename or (
             lambda post_inf, file_inf: (
+                f"{post_inf['__idx']:>03}. "
                 f"{file_inf['__idx']:>03}. "
                 f"{post_inf['post_title'].rstrip('.')}"
                 f"{Path(file_inf['file_title']).suffix}"
@@ -433,11 +434,14 @@ class SponsrDumper:
 
         with self._configuration():
 
-            file_idx = 0
+            post_idx = 0
 
             for post_info in collected:
 
                 # 'post_id' 'level_id' 'post_date' 'post_title' 'post_text' 'post_url' 'tags'
+                file_idx = 0
+                post_idx += 1
+                post_info['__idx'] = post_idx
 
                 for realm in realms:
 
