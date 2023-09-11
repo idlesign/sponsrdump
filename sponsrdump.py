@@ -15,10 +15,56 @@ from uuid import uuid4
 
 import requests
 from bs4 import BeautifulSoup
+from html2text import html2text
 from lxml import etree
 from requests.cookies import cookiejar_from_dict
 
 LOGGER = logging.getLogger(__name__)
+PATH_BASE = Path(__file__).parent.absolute()
+RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
+
+
+TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
+
+
+class TextConverter:
+
+    alias: str = ''
+
+    register: Dict[str, Type[TypeTextConverter]] = {}
+
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        cls.register[cls.alias] = cls
+
+    def _convert(self, value: str) -> str:
+        raise NotImplementedError
+
+    def dump(self, value: str, *, dest: Path) -> Path:
+        target = dest.with_suffix(f'.{self.alias}')
+        with open(target, 'w') as f:
+            f.write(self._convert(value))
+        return target
+
+    @classmethod
+    def spawn(cls, alias: str) -> 'TypeTextConverter':
+        return cls.register[alias]()
+
+
+class HtmlConverter(TextConverter):
+
+    alias = 'html'
+
+    def _convert(self, value: str) -> str:
+        return value
+
+
+class TxtConverter(TextConverter):
+
+    alias = 'txt'
+
+    def _convert(self, value: str) -> str:
+        return html2text(value)
 
 
 class VideoPreference(NamedTuple):
