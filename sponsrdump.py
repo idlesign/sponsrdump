@@ -504,4 +504,4 @@ if __name__ == '__main__':
         filter_func = lambda post_info: title in post_info['post_title']
 
     dumper.search(func_filter=filter_func)
-    dumper.dump(args.to, prefer_video=VideoPreference(frame=args.prefer_video), audio=False, text=False)
+    dumper.dump(args.to, prefer_video=VideoPreference(frame=args.prefer_video))
