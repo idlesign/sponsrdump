@@ -530,7 +530,8 @@ class SponsrDumper:
         reverse: bool = True,
         audio: bool = True,
         video: bool = True,
-        text: bool = True,
+        text: Union[bool, str] = True,
+        text_to_video: bool = True,
         prefer_video: VideoPreference = VideoPreference(),
     ):
 
@@ -602,8 +603,17 @@ class SponsrDumper:
                             self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
 
                         else:
-                            with open(dest_filename, 'w') as f:
-                                f.write(file_info['__content'])
+                            dest_filename = TextConverter.spawn(
+                                'txt' if isinstance(text, bool) else text
+                            ).dump(
+                                file_info['__content'],
+                                dest=dest_filename
+                            )
+
+                            if text_to_video:
+                                self.text_to_video(dest_filename)
+
+                            filename = dest_filename.name
 
                         self._dumped[file_id_conf] = filename
 
