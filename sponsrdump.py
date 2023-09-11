@@ -25,6 +25,8 @@ LOGGER = logging.getLogger(__name__)
 PATH_BASE = Path(__file__).parent.absolute()
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 
+_CLEANUP = True
+
 
 TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
 
@@ -147,7 +149,7 @@ class SponsrDumper:
         path_target = src.with_suffix('.mp4').with_stem(f'{fname_stem} [txt]')
         path_target.unlink(missing_ok=True)
 
-        LOGGER.info(f'Generating text video: {path_target} ...')
+        LOGGER.info(f'  Generating text video: {path_target} ...')
 
         with open(src) as f:
             text = f.read()
@@ -194,9 +196,9 @@ class SponsrDumper:
         return path_target
 
     @classmethod
-    def call(cls, cmd: str, cwd: Path):
-        prc = Popen(cmd, cwd=cwd, shell=True, stdout=PIPE, stderr=PIPE)
-        out, err = [item.decode() for item in prc.communicate()]
+    def call(cls, cmd: str, *, cwd: Path, capture_out: bool = True):
+        prc = Popen(cmd, cwd=cwd, shell=True, stdout=PIPE if capture_out else None, stderr=PIPE)
+        out, err = [item.decode() if item else '' for item in prc.communicate()]
 
         if prc.returncode:
             raise SponsrDumperError(f'Command error:\n{cmd}\n\n{out}\n\n{err}\n----------')
@@ -271,7 +273,7 @@ class SponsrDumper:
         video = sort_idents(video)
         audio = sort_idents(audio)
 
-        LOGGER.info(f"Found media formats: video - {', '.join(video)}; audio - {', '.join(audio)}.")
+        LOGGER.info(f"  Found media formats: video - {', '.join(video)}; audio - {', '.join(audio)}.")
 
         return video, audio
 
@@ -314,7 +316,7 @@ class SponsrDumper:
                 self._mpd_process(mpd=dest_tmp, dest=dest, prefer_video=prefer_video)
 
             finally:
-                dest_tmp.unlink(missing_ok=True)
+                _CLEANUP and dest_tmp.unlink(missing_ok=True)
 
     def _mpd_process(self, *, mpd: Path, dest: Path, prefer_video: VideoPreference):
 
@@ -334,22 +336,25 @@ class SponsrDumper:
                 video.get(prefer_video.frame) or video[list(video.keys())[-1]],
                 suffix='vid'
             )
+            LOGGER.info('  Joining video chunks ...')
             f_video = self._concat_chunks(src=dest_tmp, suffix='vid')
 
             download_all(
                 audio.get(prefer_video.sound) or audio[list(audio.keys())[-1]],
                 suffix='aud'
             )
+            LOGGER.info('  Joining audio chunks ...')
             f_audio = self._concat_chunks(src=dest_tmp, suffix='aud')
 
             # join video + audio
+            LOGGER.info('  Compiling final video ...')
             self.call(
                 f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
                 cwd=dest_tmp,
             )
 
         finally:
-            shutil.rmtree(dest_tmp)
+            _CLEANUP and shutil.rmtree(dest_tmp)
 
     def _get_response(self, url: str, *, xhr: bool = False) -> requests.Response:
 
@@ -539,11 +544,11 @@ class SponsrDumper:
 
         func_filename = func_filename or (
             lambda post_inf, file_inf: RE_FILENAME_INVALID.sub(
+                '',
                 f"{post_inf['__idx']:>03}. "
                 f"{file_inf['__idx']:>03}. "
                 f"{post_inf['post_title'].rstrip('.')}"
-                f"{Path(file_inf['file_title']).suffix}",
-                '',
+                f"{Path(file_inf['file_title']).suffix}"
             )
         )
 
