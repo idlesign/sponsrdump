@@ -205,15 +205,10 @@ class SponsrDumper:
     def _concat_chunks(cls, *, src: Path, suffix: str) -> Path:
 
         with chdir(src):
-            fname_index = f'chunks{suffix}.txt'
-
             src_files = sorted([f'{fname}' for fname in listdir(src) if f'_{suffix}.' in fname])
-
-            with open(fname_index, 'w') as f:
-                f.writelines([f'file {fname}' for fname in src_files])
-
             target = f'{uuid4()}.mp4'
-            subprocess.check_call(f'ffmpeg -f concat -i "{fname_index}" -c copy "{target}"', cwd=src, shell=True)
+            src_files_str = '" "'.join(src_files)
+            cls.call(f'cat "{src_files_str}" > "{target}"', cwd=src)
 
             for src_file in src_files:
                 (src / src_file).unlink()
@@ -264,14 +259,11 @@ class SponsrDumper:
                     ident = f"{repres.attrib['width']}x{repres.attrib['height']}"
 
                 for url_element in repres[0]:
-
-                    if url_element.tag != 'Initialization':
-                        # SegmentURLs are all the same video as in Initialization
-                        continue
-
                     url = url_element.attrib.get('sourceURL') or url_element.attrib.get('media')
+                    range = url_element.attrib.get('range') or url_element.attrib.get('mediaRange')
+
                     if url and url not in bucket[ident]:
-                        bucket[ident].append(url)
+                        bucket[ident].append((url, range))
 
         def sort_idents(container):
             return dict(sorted(container.items(), key=lambda items: int(items[0].split('x', 1)[0])))
@@ -283,12 +275,21 @@ class SponsrDumper:
 
         return video, audio
 
-    def _download_file(self, url: str, *, dest: Path, prefer_video: VideoPreference):
+    def _download_file(self, url: str, *, dest: Path, prefer_video: VideoPreference, range: str = ''):
 
         if not url.startswith('http'):
             url = f'{self._url_base}{url}'
 
         headers = {}
+
+        if range:
+            headers.update({
+                'Accept': '*/*',
+                'Accept-Encoding': 'identity',
+                'Connection': 'keep-alive',
+                'Range': f'bytes={range}',
+                'Referer': 'https://kinescope.io/',
+            })
 
         is_mpd = url.endswith('.mpd')
         dest_tmp = None
@@ -320,11 +321,11 @@ class SponsrDumper:
         dest_tmp = (mpd.parent / 'tmp').absolute()
         dest_tmp.mkdir(parents=True, exist_ok=True)
 
-        def download_all(urls: List[str], *, suffix: str):
+        def download_all(urls: List[Tuple[str, str]], *, suffix: str):
 
-            for idx, url in enumerate(urls, 1):
+            for idx, (url, range) in enumerate(urls, 1):
                 file_dest = dest_tmp / f'{idx:>05}_{suffix}{dest.suffix}'
-                self._download_file(url, dest=file_dest, prefer_video=prefer_video)
+                self._download_file(url, dest=file_dest, prefer_video=prefer_video, range=range)
 
         try:
             video, audio = self._mpd_parse(mpd)
@@ -342,10 +343,9 @@ class SponsrDumper:
             f_audio = self._concat_chunks(src=dest_tmp, suffix='aud')
 
             # join video + audio
-            subprocess.check_call(
+            self.call(
                 f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
                 cwd=dest_tmp,
-                shell=True
             )
 
         finally:
@@ -361,14 +361,9 @@ class SponsrDumper:
         if xhr:
             headers.update({
                 'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
                 'e': 'true',
-                'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "YaBrowser";v="23"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Linux"',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'Sec-Fetch-Site': 'same-origin',
             })
 
         response = self._session.get(url, headers=headers)
