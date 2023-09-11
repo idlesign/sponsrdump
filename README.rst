@@ -16,7 +16,7 @@ https://github.com/idlesign/sponsrdump
 * Unix
 * Python 3.10+
 * ffmpeg (``sudo apt install ffmpeg``)
-* beautifulsoup4, lxml, requests (``pip install -r requirements.txt``)
+* beautifulsoup4, html2text, lxml, requests (``pip install -r requirements.txt``)
 
 
 Начало работы
@@ -48,16 +48,16 @@ https://github.com/idlesign/sponsrdump
 Запуск из командной строки
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-В примере мы используем фильтр, который инструктировать собирателя на поиск только тех статей, в заголовке которых есть слово ``Урок``.
+В примере мы используем фильтр, который инструктировать собирателя на поиск только тех статей, в заголовке которых есть слово ``Урок ``.
 
 Мы будем собирать все файлы (тексты, аудио, видео), начиная от старых к новым, и складывать их в поддиректорию ``here/`` текущей директории.
 
-Для видео будем предпочитать разрешение ``640x360``.
+Для видео будем предпочитать разрешение ``640x360``. Сделаем видео с текстом статьи ``text-to-video``,
 
 
 .. code-block:: sh
 
-    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360
+    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
 
 
 Запуск из кода
@@ -69,5 +69,5 @@ https://github.com/idlesign/sponsrdump
 
     dumper = SponsrDumper('https://sponsr.ru/uzhukoffa_lessons/')
     dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
-    dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'))
+    dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_video=True)
 
