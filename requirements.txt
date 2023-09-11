@@ -1,3 +1,4 @@
-beautifulsoup4
-lxml
-requests
+beautifulsoup4>=4.12.2
+html2text>=2020.1.16
+lxml>=4.9.3
+requests>=2.31.0
