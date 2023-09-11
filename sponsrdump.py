@@ -537,11 +537,12 @@ class SponsrDumper:
         LOGGER.info(f'Start dump using preference: {prefer_video} ...')
 
         func_filename = func_filename or (
-            lambda post_inf, file_inf: (
+            lambda post_inf, file_inf: RE_FILENAME_INVALID.sub(
                 f"{post_inf['__idx']:>03}. "
                 f"{file_inf['__idx']:>03}. "
                 f"{post_inf['post_title'].rstrip('.')}"
-                f"{Path(file_inf['file_title']).suffix}".replace(':', '').replace('?', '').replace('"', '')
+                f"{Path(file_inf['file_title']).suffix}",
+                '',
             )
         )
 
