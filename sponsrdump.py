@@ -10,7 +10,9 @@ from collections import defaultdict
 from contextlib import contextmanager
 from os import listdir
 from pathlib import Path
-from typing import List, Callable, Union, Dict, NamedTuple, Tuple
+from subprocess import Popen, PIPE
+from textwrap import wrap
+from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
 from uuid import uuid4
 
 import requests
@@ -127,10 +129,15 @@ class SponsrDumper:
     def _concat_chunks(cls, *, src: Path, suffix: str) -> Path:
 
         with chdir(src):
+            fname_index = f'chunks{suffix}.txt'
+
             src_files = sorted([f'{fname}' for fname in listdir(src) if f'_{suffix}.' in fname])
+
+            with open(fname_index, 'w') as f:
+                f.writelines([f'file {fname}' for fname in src_files])
+
             target = f'{uuid4()}.mp4'
-            src_files = '" "'.join(src_files)
-            subprocess.check_call(f'cat "{src_files}" > "{target}"', cwd=src, shell=True)
+            subprocess.check_call(f'ffmpeg -f concat -i "{fname_index}" -c copy "{target}"', cwd=src, shell=True)
 
             for src_file in src_files:
                 (src / src_file).unlink()
@@ -181,11 +188,14 @@ class SponsrDumper:
                     ident = f"{repres.attrib['width']}x{repres.attrib['height']}"
 
                 for url_element in repres[0]:
-                    url = url_element.attrib.get('sourceURL') or url_element.attrib.get('media')
-                    range = url_element.attrib.get('range') or url_element.attrib.get('mediaRange')
 
+                    if url_element.tag != 'Initialization':
+                        # SegmentURLs are all the same video as in Initialization
+                        continue
+
+                    url = url_element.attrib.get('sourceURL') or url_element.attrib.get('media')
                     if url and url not in bucket[ident]:
-                        bucket[ident].append((url, range))
+                        bucket[ident].append(url)
 
         def sort_idents(container):
             return dict(sorted(container.items(), key=lambda items: int(items[0].split('x', 1)[0])))
@@ -197,21 +207,12 @@ class SponsrDumper:
 
         return video, audio
 
-    def _download_file(self, url: str, *, dest: Path, prefer_video: VideoPreference, range: str = ''):
+    def _download_file(self, url: str, *, dest: Path, prefer_video: VideoPreference):
 
         if not url.startswith('http'):
             url = f'{self._url_base}{url}'
 
         headers = {}
-
-        if range:
-            headers.update({
-                'Accept': '*/*',
-                'Accept-Encoding': 'identity',
-                'Connection': 'keep-alive',
-                'Range': f'bytes={range}',
-                'Referer': 'https://kinescope.io/',
-            })
 
         is_mpd = url.endswith('.mpd')
         dest_tmp = None
@@ -232,7 +233,6 @@ class SponsrDumper:
 
         if is_mpd:
             try:
-                # download mpd chunks
                 self._mpd_process(mpd=dest_tmp, dest=dest, prefer_video=prefer_video)
 
             finally:
@@ -243,11 +243,11 @@ class SponsrDumper:
         dest_tmp = (mpd.parent / 'tmp').absolute()
         dest_tmp.mkdir(parents=True, exist_ok=True)
 
-        def download_all(urls: List[Tuple[str, str]], *, suffix: str):
+        def download_all(urls: List[str], *, suffix: str):
 
-            for idx, (url, range) in enumerate(urls, 1):
+            for idx, url in enumerate(urls, 1):
                 file_dest = dest_tmp / f'{idx:>05}_{suffix}{dest.suffix}'
-                self._download_file(url, dest=file_dest, prefer_video=prefer_video, range=range)
+                self._download_file(url, dest=file_dest, prefer_video=prefer_video)
 
         try:
             video, audio = self._mpd_parse(mpd)
@@ -284,9 +284,14 @@ class SponsrDumper:
         if xhr:
             headers.update({
                 'X-Requested-With': 'XMLHttpRequest',
-                'e': 'true',
                 'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
                 'Sec-Fetch-Site': 'same-origin',
+                'e': 'true',
+                'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "YaBrowser";v="23"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Linux"',
             })
 
         response = self._session.get(url, headers=headers)
@@ -353,7 +358,7 @@ class SponsrDumper:
             posts_all.extend(posts_current)
             rows_total = data['rows_count']
 
-            LOGGER.info(f'Searched {rows_seen}/{rows_total} ...')
+            LOGGER.info(f'Processed {rows_seen}/{rows_total} ...')
 
         return posts_all
 
