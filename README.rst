@@ -57,7 +57,7 @@ https://github.com/idlesign/sponsrdump
 
 .. code-block:: sh
 
-    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок" --to here/ --prefer-video 640x360
+    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360
 
 
 Запуск из кода
@@ -68,6 +68,6 @@ https://github.com/idlesign/sponsrdump
 .. code-block:: python
 
     dumper = SponsrDumper('https://sponsr.ru/uzhukoffa_lessons/')
-    dumper.search(func_filter=lambda post_info: 'Урок' in post_info['post_title'])
+    dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
     dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'))
 
