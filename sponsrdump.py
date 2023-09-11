@@ -430,7 +430,7 @@ class SponsrDumper:
             posts_all.extend(posts_current)
             rows_total = data['rows_count']
 
-            LOGGER.info(f'Processed {rows_seen}/{rows_total} ...')
+            LOGGER.debug(f'Searched {rows_seen}/{rows_total} ...')
 
         return posts_all
 
@@ -518,7 +518,7 @@ class SponsrDumper:
         self._collected = collected
         found = len(collected)
 
-        LOGGER.info(f'Found {found} items')
+        LOGGER.info(f'Found articles: {found}')
 
         return found
 
@@ -550,7 +550,7 @@ class SponsrDumper:
 
         collected = self._collected
         if reverse:
-            collected = reversed(collected)
+            collected = list(reversed(collected))
 
         realms = []
 
@@ -561,13 +561,16 @@ class SponsrDumper:
         with self._configuration():
 
             post_idx = 0
+            posts_total = len(collected)
 
-            for post_info in collected:
+            for idx, post_info in enumerate(collected, 1):
 
                 # 'post_id' 'level_id' 'post_date' 'post_title' 'post_text' 'post_url' 'tags'
                 file_idx = 0
                 post_idx += 1
                 post_info['__idx'] = post_idx
+
+                msg_prefix = f'[{idx}/{posts_total} {round(100 * idx / posts_total, 1)}%] '
 
                 for realm in realms:
 
@@ -578,7 +581,7 @@ class SponsrDumper:
                         file_id = file_info['file_id']
                         file_title = file_info['file_title']
 
-                        msg_prefix = f'File {file_id} [{file_title}]:'
+                        msg_postfix = f'File {file_id} [{file_title}]:'
 
                         file_id_conf = f'f_{file_id}'
 
@@ -586,10 +589,10 @@ class SponsrDumper:
                         file_info['__idx'] = file_idx
 
                         if file_id_conf in self._dumped:
-                            LOGGER.warning(f"{msg_prefix} skipped")
+                            LOGGER.warning(f'{msg_prefix} Skipped {msg_postfix}')
                             continue
 
-                        LOGGER.info(f"{msg_prefix} downloading ...")
+                        LOGGER.info(f'{msg_prefix} Downloading {msg_postfix}  ...')
 
                         filename = func_filename(post_info, file_info)
                         dest_filename = dest / filename
