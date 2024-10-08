@@ -453,13 +453,18 @@ class SponsrDumper:
         if not path.exists():
             raise SponsrDumperError(f'File {path} is not found in the current directory.')
 
-        with open(path) as f:
-            self._session.cookies = cookiejar_from_dict(
-                dict(
-                    line.strip().split('=', 1)
-                    for line in f.read().split(';')
+        try:
+
+            with open(path) as f:
+                data = f.read().rstrip(';')
+                self._session.cookies = cookiejar_from_dict(
+                    dict(
+                        line.strip().split('=', 1)
+                        for line in data.split(';')
+                    )
                 )
-            )
+        except ValueError:
+            raise SponsrDumperError(f'File {path} contents is not valid.')
 
     def _auth_write(self):
         with open(Path(self._fname_auth), 'w') as f:
