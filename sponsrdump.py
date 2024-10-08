@@ -394,7 +394,7 @@ class SponsrDumper:
             audio.append(file_info)
 
         post_title = post['post_title'].rstrip('.')
-        post_text = post['post_text']
+        post_text = post.get('post_text', post.get('post_small_text', '')).strip()
 
         text.append({
             'file_id': f"{post['post_id']}",
