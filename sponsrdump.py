@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 from textwrap import wrap
 from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
 from uuid import uuid4
+from urllib.parse import parse_qs, urlparse, parse_qsl
 
 import requests
 from bs4 import BeautifulSoup
@@ -298,12 +299,16 @@ class SponsrDumper:
 
         if is_mpd:
             headers['Referer'] = (
-                'https://kinescope.io/204255112?enableIframeApi'
+                'https://kinescope.io/203245765?enableIframeApi'
                 '&playerId=player&size%5Bwidth%5D=100%25&size%5Bheight%5D=100%25&preload=none'
             )
             dest_tmp = dest.with_suffix('.tmp')
 
         with self._session.get(url, stream=True, headers=headers) as response:
+
+            if response.status_code == 403:
+                LOGGER.error('Access denied.')
+
             response.raise_for_status()
 
             with open(dest_tmp or dest, 'wb') as f:
@@ -405,9 +410,9 @@ class SponsrDumper:
 
         for iframe in self._get_soup(post_text).find_all('iframe'):
 
-            if 'video' in (src := iframe['src']):
-
-                file_id = src.split('=')[-1]
+            if 'video' in (src := iframe['src']) and (file_id := parse_qs(urlparse(src).query).get('video_id')):
+                # workaround bogus links like /post/video/?video_id=xxx?poster_id=yyy
+                file_id = file_id[0].partition('?')[0]
                 video.append({
                     'file_id': file_id,
                     'file_title': f'{post_title}.mp4',
