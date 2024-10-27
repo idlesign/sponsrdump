@@ -5,7 +5,6 @@ import os
 import re
 import shlex
 import shutil
-
 from collections import defaultdict
 from contextlib import contextmanager
 from os import listdir
@@ -13,8 +12,8 @@ from pathlib import Path
 from subprocess import Popen, PIPE
 from textwrap import wrap
 from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
-from urllib.parse import parse_qs, urlparse, parse_qsl
 
 import requests
 from bs4 import BeautifulSoup
