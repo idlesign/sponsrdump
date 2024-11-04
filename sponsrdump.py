@@ -9,6 +9,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from os import listdir
 from pathlib import Path
+from pprint import pprint
 from subprocess import Popen, PIPE
 from textwrap import wrap
 from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
@@ -19,6 +20,7 @@ import requests
 from bs4 import BeautifulSoup
 from html2text import html2text
 from lxml import etree
+from requests import HTTPError
 from requests.cookies import cookiejar_from_dict
 
 LOGGER = logging.getLogger(__name__)
@@ -614,7 +616,13 @@ class SponsrDumper:
                         dest_filename = dest / filename
 
                         if filepath := file_info['file_path']:
-                            self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
+
+                            try:
+                                self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
+
+                            except HTTPError:
+                                LOGGER.debug(f'{pprint(file_info)}')
+                                raise
 
                         else:
                             dest_filename = TextConverter.spawn(
