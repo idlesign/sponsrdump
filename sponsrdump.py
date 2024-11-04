@@ -9,7 +9,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from os import listdir
 from pathlib import Path
-from pprint import pprint
+from pprint import pformat
 from subprocess import Popen, PIPE
 from textwrap import wrap
 from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
@@ -621,7 +621,7 @@ class SponsrDumper:
                                 self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
 
                             except HTTPError:
-                                LOGGER.debug(f'{pprint(file_info)}')
+                                LOGGER.debug(f'{pformat(file_info, indent=2)}')
                                 raise
 
                         else:
