@@ -71,3 +71,23 @@ https://github.com/idlesign/sponsrdump
     dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
     dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_video=True)
 
+
+Запуск в контейнере
+~~~~~~~~~~~~~~~~~~~
+
+Будет полезно для тех, кто хочет выгужать видео сразу на свой домашний NAS без python3.10.
+
+Требует наличия в системе Docker. Если у вас есть make: 
+
+.. code-block:: sh
+    
+    $ make run
+    # ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+
+Можно и без make и shell, в данном примере монитиуем auth и json файлы и каталог dump, чтобы сохранять данные вне контейнера:
+
+.. code-block:: sh
+
+    $ docker build -t sponsrdump .
+    $ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+
