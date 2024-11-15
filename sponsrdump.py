@@ -549,6 +549,7 @@ class SponsrDumper:
         text: Union[bool, str] = True,
         text_to_video: bool = True,
         prefer_video: VideoPreference = VideoPreference(),
+        skip_lost: bool = False,
     ):
 
         LOGGER.info(f'Start dump using preference: {prefer_video} ...')
@@ -620,9 +621,13 @@ class SponsrDumper:
                             try:
                                 self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
 
-                            except HTTPError:
+                            except HTTPError as err:
                                 LOGGER.debug(f'{pformat(file_info, indent=2)}')
-                                raise
+                                if skip_lost and err.response.status_code == 404:
+                                    LOGGER.warning(f'File {filepath} not found, skip')
+                                    filename += ' [skipped]'
+                                else:
+                                    raise
 
                         else:
                             dest_filename = TextConverter.spawn(
@@ -662,6 +667,8 @@ if __name__ == '__main__':
         '--no-text', help='Не следует скачивать текст', action='store_true')
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
+    parser.add_argument(
+        '--skip-lost', help='Пропускать не найденные файлы (error 404)', action='store_true')
 
     args = parser.parse_args()
 
@@ -681,5 +688,6 @@ if __name__ == '__main__':
         audio=not args.no_audio,
         video=not args.no_video,
         text=not args.no_text,
-        text_to_video=args.text_to_video
+        text_to_video=args.text_to_video,
+        skip_lost=args.skip_lost
     )
