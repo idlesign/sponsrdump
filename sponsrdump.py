@@ -398,7 +398,7 @@ class SponsrDumper:
         for file_info in post.get('files') or []:
             assert file_info['file_category'] == 'podcast', f'Unsupported file category found: {file_info}'
             if not file_info['file_duration']:
-                LOGGER.debug(f'Probably missing {file_info['file_link']}. Skipped.')
+                LOGGER.debug(f'Probably missing {file_info["file_link"]}. Skipped.')
                 continue
             audio.append(file_info)
 
