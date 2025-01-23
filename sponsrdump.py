@@ -7,6 +7,7 @@ import shlex
 import shutil
 from collections import defaultdict
 from contextlib import contextmanager
+from enum import Enum
 from os import listdir
 from pathlib import Path
 from pprint import pformat
@@ -26,6 +27,15 @@ from requests.cookies import cookiejar_from_dict
 LOGGER = logging.getLogger(__name__)
 PATH_BASE = Path(__file__).parent.absolute()
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
+
+
+class FileType(Enum):
+
+    TEXT = 0
+    VIDEO = 1
+    AUDIO = 2
+    IMAGE = 3
+
 
 _CLEANUP = True
 
@@ -279,7 +289,15 @@ class SponsrDumper:
 
         return video, audio
 
-    def _download_file(self, url: str, *, dest: Path, prefer_video: VideoPreference, range: str = ''):
+    def _download_file(
+            self,
+            url: str,
+            *,
+            dest: Path,
+            stream: bool = True,
+            prefer_video: VideoPreference,
+            range: str = ''
+    ):
 
         if not url.startswith('http'):
             url = f'{self._url_base}{url}'
@@ -305,7 +323,7 @@ class SponsrDumper:
             )
             dest_tmp = dest.with_suffix('.tmp')
 
-        with self._session.get(url, stream=True, headers=headers) as response:
+        with self._session.get(url, stream=stream, headers=headers) as response:
 
             if response.status_code == 403:
                 LOGGER.error('Access denied.')
@@ -387,12 +405,13 @@ class SponsrDumper:
         audio = []
         video = []
         text = []
+        images = []
 
         post['__files'] = {
             'audio': audio,
             'video': video,
             'text': text,
-
+            'images': images,
         }
 
         for file_info in post.get('files') or []:
@@ -400,6 +419,7 @@ class SponsrDumper:
             if not file_info['file_duration']:
                 LOGGER.debug(f'Probably missing {file_info["file_link"]}. Skipped.')
                 continue
+            file_info['file_type'] = FileType.AUDIO
             audio.append(file_info)
 
         post_title = post['post_title'].rstrip('.')
@@ -409,10 +429,22 @@ class SponsrDumper:
             'file_id': f"{post['post_id']}",
             'file_title': f'{post_title}.html',
             'file_path': '',
+            'file_type': FileType.TEXT,
             '__content': post_text,
         })
 
-        for iframe in self._get_soup(post_text).find_all('iframe'):
+        soup = self._get_soup(post_text)
+
+        for image in soup.find_all('img'):
+            if (src := image['src']) and (image_name := Path(urlparse(src).path).name):
+                images.append({
+                    'file_id': image_name,
+                    'file_title': image_name,
+                    'file_path': src,
+                    'file_type': FileType.IMAGE,
+                })
+
+        for iframe in soup.find_all('iframe'):
 
             if 'video' in (src := iframe['src']) and (file_id := parse_qs(urlparse(src).query).get('video_id')):
                 # workaround bogus links like /post/video/?video_id=xxx?poster_id=yyy
@@ -421,6 +453,7 @@ class SponsrDumper:
                     'file_id': file_id,
                     'file_title': f'{post_title}.mp4',
                     'file_path': f'https://kinescope.io/{file_id}/master.mpd',
+                    'file_type': FileType.VIDEO,
                 })
 
     def _collect_posts(self, *, project_id: str, func_filter: Callable = None) -> List[dict]:
@@ -549,6 +582,7 @@ class SponsrDumper:
         reverse: bool = True,
         audio: bool = True,
         video: bool = True,
+        images: bool = True,
         text: Union[bool, str] = True,
         text_to_video: bool = True,
         prefer_video: VideoPreference = VideoPreference(),
@@ -577,6 +611,7 @@ class SponsrDumper:
 
         audio and realms.append('audio')
         video and realms.append('video')
+        images and realms.append('images')
         text and realms.append('text')
 
         with self._configuration():
@@ -614,6 +649,7 @@ class SponsrDumper:
                             continue
 
                         LOGGER.info(f'{msg_prefix} Downloading {msg_postfix}  ...')
+                        file_type = file_info['file_type']
 
                         filename = func_filename(post_info, file_info)
                         dest_filename = dest / filename
@@ -621,13 +657,19 @@ class SponsrDumper:
                         if filepath := file_info['file_path']:
 
                             try:
-                                self._download_file(filepath, dest=dest_filename, prefer_video=prefer_video)
+                                self._download_file(
+                                    filepath,
+                                    dest=dest_filename,
+                                    stream=file_type is not FileType.IMAGE,
+                                    prefer_video=prefer_video
+                                )
 
                             except HTTPError:
                                 LOGGER.debug(f'{pformat(file_info, indent=2)}')
                                 raise
 
-                        else:
+                        if file_type is FileType.TEXT:
+
                             dest_filename = TextConverter.spawn(
                                 'txt' if isinstance(text, bool) else text
                             ).dump(
@@ -664,6 +706,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--no-text', help='Не следует скачивать текст', action='store_true')
     parser.add_argument(
+        '--no-images', help='Не следует скачивать изображения', action='store_true')
+    parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
 
     args = parser.parse_args()
@@ -683,6 +727,7 @@ if __name__ == '__main__':
         prefer_video=VideoPreference(frame=args.prefer_video),
         audio=not args.no_audio,
         video=not args.no_video,
+        images=not args.no_images,
         text=not args.no_text,
         text_to_video=args.text_to_video
     )
