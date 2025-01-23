@@ -75,9 +75,9 @@ class HtmlConverter(TextConverter):
         return value
 
 
-class TxtConverter(TextConverter):
+class MarkdownConverter(TextConverter):
 
-    alias = 'txt'
+    alias = 'md'
 
     def _convert(self, value: str) -> str:
         return html2text(value)
@@ -668,17 +668,29 @@ class SponsrDumper:
                                 LOGGER.debug(f'{pformat(file_info, indent=2)}')
                                 raise
 
-                        if file_type is FileType.TEXT:
+                        if file_type is FileType.TEXT and text:
 
-                            dest_filename = TextConverter.spawn(
-                                'txt' if isinstance(text, bool) else text
-                            ).dump(
-                                file_info['__content'],
-                                dest=dest_filename
-                            )
+                            converter_alias_md = MarkdownConverter.alias
+                            converter_alias = converter_alias_md if isinstance(text, bool) else text
 
                             if text_to_video:
-                                self.text_to_video(dest_filename)
+
+                                conversion_required = converter_alias != converter_alias_md
+
+                                text_to_video_src_filename = TextConverter.spawn(
+                                    converter_alias_md
+                                ).dump(file_info['__content'], dest=dest_filename)
+
+                                self.text_to_video(text_to_video_src_filename)
+
+                                if conversion_required:
+                                    text_to_video_src_filename.unlink(missing_ok=True)
+
+                            if converter_alias != converter_alias_md:
+
+                                dest_filename = TextConverter.spawn(
+                                    converter_alias
+                                ).dump(file_info['__content'], dest=dest_filename)
 
                             filename = dest_filename.name
 
@@ -699,6 +711,10 @@ if __name__ == '__main__':
         '--to', help='Путь назначения для файлов', default='dump/')
     parser.add_argument(
         '--prefer-video', help='Предпочтительное разрешение видео', default='best')
+    parser.add_argument(
+        '--text-fmt', help=(
+            f'Формат для текстовых данных. Варианты: {", ".join(sorted(TextConverter.register.keys()))}'),
+        default='txt')
     parser.add_argument(
         '--no-audio', help='Не следует скачивать аудио', action='store_true')
     parser.add_argument(
@@ -728,6 +744,6 @@ if __name__ == '__main__':
         audio=not args.no_audio,
         video=not args.no_video,
         images=not args.no_images,
-        text=not args.no_text,
+        text=False if args.no_text else args.text_fmt.lower(),
         text_to_video=args.text_to_video
     )
