@@ -7,4 +7,4 @@ build:
 	docker build -t sponsrdump .
 
 run: build
-	docker run -it -v $(WORKDIR)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(WORKDIR)/sponsrdump.json:/sponsrdump.json -v $(WORKDIR)/dump:/dump sponsrdump
+	docker run -it -v $(WORKDIR)/sponsrdump_auth.txt:/app/sponsrdump_auth.txt -v $(WORKDIR)/sponsrdump.json:/app/sponsrdump.json -v $(WORKDIR)/dump:/app/dump sponsrdump /bin/bash

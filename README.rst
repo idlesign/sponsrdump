@@ -2,92 +2,147 @@ sponsrdump
 ==========
 https://github.com/idlesign/sponsrdump
 
-
 Описание
 --------
-*Приложение позволяет получить локальные копии материалов, на котороые у вас уже имеется подписка, с сайта sponsr.ru.*
+*Приложение позволяет получить локальные копии материалов, на которые у вас уже имеется подписка, с сайта sponsr.ru.*
 
-Умеет скачивать тексты (статьи), аудио (подкаст), видео.
-
+Умеет скачивать тексты (статьи), изображения, аудио (подкасты), видео. Поддерживает преобразование текстов в видео.
 
 Зависимости
 -----------
-
-* Unix
+* Unix (Linux, macOS)
 * Python 3.10+
-* ffmpeg (``sudo apt install ffmpeg``)
-* beautifulsoup4, html2text, lxml, requests (``pip install -r requirements.txt``)
+* ffmpeg (``sudo apt install ffmpeg`` или ``brew install ffmpeg``)
+* mp4decrypt (часть пакета Bento4, см. инструкции ниже)
+* Python-пакеты: beautifulsoup4, html2text, lxml, requests, mpegdash, tqdm (``pip install -r requirements.txt``)
 
+Установка mp4decrypt (Bento4)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``mp4decrypt`` — это утилита из пакета Bento4, необходимая для обработки видео. Установите её следующим образом:
+
+**Linux**:
+
+.. code-block:: sh
+
+    sudo apt update
+    sudo apt install git cmake make g++
+    git clone https://github.com/axiomatic-systems/Bento4.git
+    cd Bento4
+    mkdir cmakebuild
+    cd cmakebuild
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make
+    sudo cp mp4decrypt /usr/local/bin/
+
+**macOS** (с использованием Homebrew):
+
+.. code-block:: sh
+
+    brew install bento4
+
+После установки убедитесь, что ``mp4decrypt`` доступен:
+
+.. code-block:: sh
+
+    mp4decrypt --version
 
 Начало работы
 -------------
+1. Перейдите в браузере на страницу нужного проекта, например, "Уроки истории" — https://sponsr.ru/uzhukoffa_lessons/
+2. Авторизуйтесь на сайте sponsr.ru, если ещё не вошли.
+3. Убедитесь, что материалы проекта доступны. Если нет, оформите подписку.
+4. Получите значение cookie ``SESS`` для сайта sponsr.ru:
 
-1. Перейдите в браузере на страницу нужного проекта.
-   Для примера используем проект "Уроки истории" - https://sponsr.ru/uzhukoffa_lessons/
-2. Если вы ещё не авторизовались на сайте (не вошли), сделайте это.
-3. Удостоверьтесь, что материалы данного проекта вам доступны. Если нет, оформите подписку на нужный проект.
-4. Теперь нам потребуется получить значение cookie ``SESS`` для сайта sponsr.ru, чтобы приложение могло собрать нужные материалы.
-   Один из вариант получения значения куки:
+   a. Нажмите F12, чтобы открыть панель разработчика, перейдите на вкладку "Сеть".
+   b. Загрузите простую страницу, например, https://sponsr.ru/img/new/white-logo.svg
+   c. Найдите запрос ``white-logo.svg`` в списке, откройте "Заголовки запроса".
+   d. В разделе ``Cookie`` скопируйте текст от ``SESS=`` до первой точки с запятой.
 
-   1. В браузере нажмите F12, откроется панель разработчика, открываем вкладку Сеть.
-   2. Переходим на страницу попроще (где меньше обращений к ресурсам, чтобы не запутаться), например, https://sponsr.ru/img/new/white-logo.svg
-   3. На вкладке Сеть выделям строку с текстом white-logo.svg. В открывшейся панели ищем раздел Заголовки запроса.
-      Находим пункт Cookie и копируем из него текст, начиная с ``SESS=`` и до первой же точки с запятой.
-      Этот текст — пропуск на сайт для нашего собирателя.
-5. Создаём текстовый файл с названием ``sponsrdump_auth.txt`` в удобной директории (из которой мы будем запускать приложение).
-6. Скопированное ранее значение cookie ``SESS`` помещаем в файл из п.5, сохраняем.
+5. Создайте файл ``sponsrdump_auth.txt`` в корне проекта и вставьте скопированное значение ``SESS``.
+6. Сохраните файл.
 
-
-В ходе сбора материалов в директории, из которой запущено приложение, будет создан файл ``sponsrdump.json``,
-с информацией о том, что уже было успешно собрано. Таким образом, при следующем запуске приложения будут собраны только новые материалы.
-
+Во время работы приложение создаст файл ``sponsrdump.json`` в текущей директории, где хранится информация о скачанных материалах. При повторном запуске будут загружаться только новые файлы.
 
 Варианты запуска
 ----------------
 
 Запуск из командной строки
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-В примере мы используем фильтр, который инструктировать собирателя на поиск только тех статей, в заголовке которых есть слово ``Урок ``.
-
-Мы будем собирать все файлы (тексты, аудио, видео), начиная от старых к новым, и складывать их в поддиректорию ``here/`` текущей директории.
-
-Для видео будем предпочитать разрешение ``640x360``. Сделаем видео с текстом статьи — ``--text-to-video``.
-
+Пример команды для скачивания материалов из проекта "Уроки истории". Фильтруем статьи, содержащие в заголовке "Урок ", сохраняем файлы в ``dump/``, предпочитаем видео в разрешении ``640x360`` и конвертируем текст в видео:
 
 .. code-block:: sh
 
-    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
+    python sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to dump/ --prefer-video 640x360 --text-to-video
 
+Полный список опций:
+
+* ``--debug``: Включить отладочные логи.
+* ``--title <text>``: Фильтровать посты по заголовку.
+* ``--to <path>``: Директория для сохранения (по умолчанию: ``dump/``).
+* ``--prefer-video <resolution>``: Предпочитаемое разрешение видео (например, ``1080``, ``best``).
+* ``--text-fmt <format>``: Формат текста (``html``, ``md``; по умолчанию: ``md``).
+* ``--no-audio``: Пропустить аудиофайлы.
+* ``--no-video``: Пропустить видеофайлы.
+* ``--no-text``: Пропустить текстовые файлы.
+* ``--no-images``: Пропустить изображения.
+* ``--ffmpeg-path <path>``: Путь к ffmpeg (опционально, если в PATH).
+* ``--mp4decrypt-path <path>``: Путь к mp4decrypt (опционально, если в PATH).
+* ``--mp4decrypt-path <path>``: Путь к mp4decrypt.
+* ``--parallel <N>``: Количество параллельных загрузок (по умолчанию: 1).
+* ``--referer <url>``: Referer для видеозагрузок.
+* ``--config <path>``: Путь к конфигурационному файлу.
+
+Пример с конфигурацией:
+
+.. code-block:: sh
+
+    python sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --config config.json
+
+Конфигурационный файл (``config.json``):
+
+.. code-block:: json
+
+    {
+        "ffmpeg_path": "/usr/bin/ffmpeg",
+        "mp4decrypt_path": "/usr/local/bin/mp4decrypt",
+        "referer": "https://sponsr.ru",
+        "parallel": 4
+    }
 
 Запуск из кода
 ~~~~~~~~~~~~~~
-
-В примере ниже использованы все те же настройки, что и в примере запуска из командной строки (выше).
+Пример с теми же настройками, что в командной строке:
 
 .. code-block:: python
 
-    dumper = SponsrDumper('https://sponsr.ru/uzhukoffa_lessons/')
-    dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
-    dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_video=True)
+    from sponsrdump.dumper import SponsrDumper
 
+    dumper = SponsrDumper(
+        url='https://sponsr.ru/uzhukoffa_lessons/',
+        ffmpeg_path='ffmpeg',
+        mp4decrypt_path='mp4decrypt'
+    )
+    dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
+    dumper.dump(
+        dest='dump/',
+        prefer_video='640x360',
+        text_to_video=True
+    )
 
 Запуск в контейнере
 ~~~~~~~~~~~~~~~~~~~
+Полезно для запуска на NAS без установки Python 3.10. Требуется Docker.
 
-Будет полезно для тех, кто хочет выгужать видео сразу на свой домашний NAS без python3.10.
-
-Требует наличия в системе Docker. Если у вас есть make: 
-
-.. code-block:: sh
-    
-    $ make run
-    # ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
-
-Можно и без make и shell, в данном примере монитиуем auth и json файлы и каталог dump, чтобы сохранять данные вне контейнера:
+С использованием ``make``:
 
 .. code-block:: sh
 
-    $ docker build -t sponsrdump .
-    $ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+    make run
+    # Внутри контейнера: python sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --prefer-video 640x360  --ffmpeg-path /usr/bin/ffmpeg --mp4decrypt-path /usr/local/bin/mp4decrypt
 
+Без ``make``:
+
+.. code-block:: sh
+
+    docker build -t sponsrdump .
+    docker run -it -v $(pwd)/sponsrdump_auth.txt:/app/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/app/sponsrdump.json -v $(pwd)/dump:/app/dump sponsrdump python sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --prefer-video 640x360
