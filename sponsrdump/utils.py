@@ -1,9 +1,11 @@
 import json
+import re
 from contextlib import contextmanager
 from pathlib import Path
-import re
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
+
+PATH_BASE = Path.cwd()
 
 
 @contextmanager

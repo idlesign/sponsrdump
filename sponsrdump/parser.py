@@ -1,12 +1,10 @@
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List
 from urllib.parse import parse_qs, urlparse
-
-import requests
 from bs4 import BeautifulSoup
+import requests
 from requests.cookies import cookiejar_from_dict
-
 from . import FileType
 
 logger = logging.getLogger(__name__)
@@ -104,7 +102,7 @@ class PostParser:
 
         text.append({
             'file_id': f"{post['post_id']}",
-            'file_title': f'{post_title}.html',
+            'file_title': post_title,
             'file_path': '',
             'file_type': FileType.TEXT,
             '__content': post_text,
