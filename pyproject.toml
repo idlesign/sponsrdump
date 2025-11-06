@@ -15,7 +15,6 @@ dependencies = [
     "html2text>=2020.1.16",
     "lxml>=4.9.3",
     "requests>=2.31.0",
-    "click",
 ]
 
 [project.urls]
