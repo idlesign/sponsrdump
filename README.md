@@ -1,37 +1,53 @@
-sponsrdump
-==========
-https://github.com/idlesign/sponsrdump
+# sponsrdump
 
+<https://github.com/idlesign/sponsrdump>
 
-Описание
---------
 *Приложение позволяет получить локальные копии материалов, на котороые у вас уже имеется подписка, с сайта sponsr.ru.*
 
 Умеет скачивать тексты (статьи), аудио (подкаст), видео.
 
 
-Зависимости
------------
+## Зависимости
 
 * Unix
 * Python 3.10+
 * ffmpeg (``sudo apt install ffmpeg``)
-* beautifulsoup4, html2text, lxml, requests (``pip install -r requirements.txt``)
+* uv (для установки и обновления приложения)
 
 
-Начало работы
--------------
+## Установка и обновление
+
+Производится при помощи приложения [uv](https://docs.astral.sh/uv/getting-started/installation/):
+
+```shell
+$ uv tool install sponsrdump
+```
+
+После этого запускать приложение можно командой
+
+```shell
+$ sponsrdump
+```
+
+Для обновления выполните
+
+```shell
+$ uv tool upgrade sponsrdump
+```
+
+
+## Начало работы
 
 1. Перейдите в браузере на страницу нужного проекта.
-   Для примера используем проект "Уроки истории" - https://sponsr.ru/uzhukoffa_lessons/
+   Для примера используем проект "Уроки истории" - <https://sponsr.ru/uzhukoffa_lessons/>
 2. Если вы ещё не авторизовались на сайте (не вошли), сделайте это.
 3. Удостоверьтесь, что материалы данного проекта вам доступны. Если нет, оформите подписку на нужный проект.
 4. Теперь нам потребуется получить значение cookie ``SESS`` для сайта sponsr.ru, чтобы приложение могло собрать нужные материалы.
    Один из вариант получения значения куки:
 
    1. В браузере нажмите F12, откроется панель разработчика, открываем вкладку Сеть.
-   2. Переходим на страницу попроще (где меньше обращений к ресурсам, чтобы не запутаться), например, https://sponsr.ru/img/new/white-logo.svg
-   3. На вкладке Сеть выделям строку с текстом white-logo.svg. В открывшейся панели ищем раздел Заголовки запроса.
+   2. Переходим на страницу попроще (где меньше обращений к ресурсам, чтобы не запутаться), например, <https://sponsr.ru/img/new/white-logo.svg>
+   3. На вкладке Сеть выделяем строку с текстом white-logo.svg. В открывшейся панели ищем раздел Заголовки запроса.
       Находим пункт Cookie и копируем из него текст, начиная с ``SESS=`` и до первой же точки с запятой.
       Этот текст — пропуск на сайт для нашего собирателя.
 5. Создаём текстовый файл с названием ``sponsrdump_auth.txt`` в удобной директории (из которой мы будем запускать приложение).
@@ -42,11 +58,9 @@ https://github.com/idlesign/sponsrdump
 с информацией о том, что уже было успешно собрано. Таким образом, при следующем запуске приложения будут собраны только новые материалы.
 
 
-Варианты запуска
-----------------
+## Примеры запуска
 
-Запуск из командной строки
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+### Из командной строки
 
 В примере мы используем фильтр, который инструктировать собирателя на поиск только тех статей, в заголовке которых есть слово ``Урок ``.
 
@@ -55,39 +69,34 @@ https://github.com/idlesign/sponsrdump
 Для видео будем предпочитать разрешение ``640x360``. Сделаем видео с текстом статьи — ``--text-to-video``.
 
 
-.. code-block:: sh
+```shell
+$ sponsrdumpy "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
+```
 
-    $ ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
-
-
-Запуск из кода
-~~~~~~~~~~~~~~
+### Из кода
 
 В примере ниже использованы все те же настройки, что и в примере запуска из командной строки (выше).
 
-.. code-block:: python
+```python
+dumper = SponsrDumper('https://sponsr.ru/uzhukoffa_lessons/')
+dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
+dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_video=True)
+```
 
-    dumper = SponsrDumper('https://sponsr.ru/uzhukoffa_lessons/')
-    dumper.search(func_filter=lambda post_info: 'Урок ' in post_info['post_title'])
-    dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_video=True)
+### В контейнере
 
+Будет полезно для тех, кто хочет выгружать видео сразу на свой домашний NAS.
 
-Запуск в контейнере
-~~~~~~~~~~~~~~~~~~~
+Требует наличия в системе ``Docker``. Если у вас есть ``make``: 
 
-Будет полезно для тех, кто хочет выгужать видео сразу на свой домашний NAS без python3.10.
+```shell
+$ make run
+$ sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+```
 
-Требует наличия в системе Docker. Если у вас есть make: 
+Можно и без ``make`` и ``shell``, в данном примере монитируем auth и json файлы и каталог ``dump``, чтобы сохранять данные вне контейнера:
 
-.. code-block:: sh
-    
-    $ make run
-    # ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
-
-Можно и без make и shell, в данном примере монитиуем auth и json файлы и каталог dump, чтобы сохранять данные вне контейнера:
-
-.. code-block:: sh
-
-    $ docker build -t sponsrdump .
-    $ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump ./sponsrdump.py "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
-
+```shell
+$ docker build -t sponsrdump .
+$ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+```
