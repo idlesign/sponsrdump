@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
-from responses import matchers
 from requests import HTTPError
+from responses import matchers
 
 from sponsrdump.base import (
     FileType,
@@ -60,7 +60,7 @@ def project_html(datafix_read):
 
 @pytest.fixture
 def base_posts_response():
-    """Базовый ответ с постами."""
+    """Базовый ответ c постами."""
     return {
         "response": {
             "rows": [
@@ -82,7 +82,7 @@ def base_posts_response():
 
 @pytest.fixture
 def dumper_with_posts_data(auth_file, project_html, base_posts_response):
-    """Данные для создания dumper с постами."""
+    """Данные для создания dumper c постами."""
     url = "https://sponsr.ru/test_project"
     project_id = "248"
     posts_json = json.dumps(base_posts_response)
@@ -498,7 +498,7 @@ def test_dump_skip_existing_file(dumper_with_posts_data, tmp_path, response_mock
         assert dest.exists()
 
 
-def test_call_error(mock_popen):
+def test_call_error(mock_popen, monkeypatch):
     class ErrorMockPopen:
         def __init__(self, cmd: str, **kwargs):
             self.cmd = cmd
@@ -509,8 +509,7 @@ def test_call_error(mock_popen):
         def communicate(self):
             return self.stdout_data, self.stderr_data
 
-    import sponsrdump.base
-    sponsrdump.base.Popen = ErrorMockPopen
+    monkeypatch.setattr("sponsrdump.base.Popen", ErrorMockPopen)
     with pytest.raises(SponsrDumperError, match="Command error"):
         SponsrDumper.call("false", cwd=Path.cwd())
 
@@ -524,7 +523,7 @@ def test_text_to_video(mock_popen, tmp_path):
     assert any("ffmpeg" in cmd for cmd in mock_popen.commands)
 
 
-@pytest.mark.parametrize("text_format,text_to_video_enabled", [
+@pytest.mark.parametrize(("text_format", "text_to_video_enabled"), [
     ("md", True),
     ("html", True),
     ("md", False),
@@ -607,7 +606,7 @@ def test_dump_func_filename_custom(dumper_with_posts_data, tmp_path, response_mo
         assert any("custom_" in f.name for f in files)
 
 
-@pytest.mark.parametrize("iframe_attr,iframe_value,expected_id", [
+@pytest.mark.parametrize(("iframe_attr", "iframe_value", "expected_id"), [
     ("data-url", "/post/video/?video_id=test123", "test123"),
     ("src", "/post/video/?video_id=legacy123", "legacy123"),
     ("data-url", "/post/video/?video_id=test123?poster_id=456", "test123"),
@@ -630,7 +629,10 @@ def test_collect_posts_with_filter(dumper_with_posts_data, response_mock):
         dumper = SponsrDumper(dumper_with_posts_data["url"])
         dumper.search()
         original_count = len(dumper._collected)
-        filter_func = lambda post: "Test" in post["post_title"]
+
+        def filter_func(post):
+            return "Test" in post["post_title"]
+
         filtered = dumper._collect_posts(project_id=dumper.project_id, func_filter=filter_func)
         assert len(filtered) <= original_count
 
