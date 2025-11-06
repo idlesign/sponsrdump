@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from .sponsrdump import SponsrDumper, TextConverter, VideoPreference
+from .base import SponsrDumper, TextConverter, VideoPreference
 
 LOGGER = logging.getLogger(__name__)
 
