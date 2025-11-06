@@ -16,7 +16,7 @@
 ## Зависимости
 
 * Unix
-* Python 3.10+
+* Python 3.11+
 * ffmpeg (``sudo apt install ffmpeg``)
 * uv (для установки и обновления приложения)
 
