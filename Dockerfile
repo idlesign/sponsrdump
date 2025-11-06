@@ -7,7 +7,7 @@ ADD bg.png .
 ADD requirements.txt .
 RUN pip install -r requirements.txt
 
-ADD sponsrdump.py .
+ADD src/sponsrdump/sponsrdump.py .
 
 VOLUME ["/dump"]
 CMD /bin/bash
