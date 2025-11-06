@@ -1,13 +1,16 @@
-FROM python:3.10
+FROM python:3.12-slim-trixie
+COPY --from=ghcr.io/astral-sh/uv:0.9.6 /uv /uvx /bin/
 
 RUN apt-get -y update
 RUN apt-get install -y ffmpeg
 
-ADD src/sponsrdump/bg.png .
-ADD requirements.txt .
-RUN pip install -r requirements.txt
+ADD src/ src/
+ADD README.md .
+ADD pyproject.toml .
+RUN uv sync
+RUN uv tool install --force -e .
 
-ADD src/sponsrdump/sponsrdump.py .
+RUN uvx sponsrdump --help
 
 VOLUME ["/dump"]
-CMD /bin/bash
+CMD ["/bin/bash"]

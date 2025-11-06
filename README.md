@@ -98,7 +98,7 @@ $ sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --pre
 
 ```shell
 $ docker build -t sponsrdump .
-$ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+$ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump uvx sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
 ```
 
 ## Для разработки
