@@ -1,6 +1,7 @@
-import logging
 import argparse
-from .sponsrdump import TextConverter, VideoPreference, SponsrDumper
+import logging
+
+from .sponsrdump import SponsrDumper, TextConverter, VideoPreference
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def main():
     filter_func = None
 
     if title := args.title.strip():
-        filter_func = lambda post_info: title in post_info['post_title']
+        filter_func = lambda post_info: title in post_info['post_title']  # noqa: E731
 
     dumper.search(func_filter=filter_func)
     dumper.dump(

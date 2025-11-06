@@ -1,4 +1,4 @@
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 exclude = [
 ]
@@ -44,3 +44,9 @@ ignore = []
 
 [lint.extend-per-file-ignores]
 "tests/*" = []
+"src/sponsrdump/base.py" = [
+    "G004",
+]
+"src/sponsrdump/cli.py" = [
+    "RUF001",
+]

@@ -5,14 +5,14 @@ import re
 import shlex
 import shutil
 from collections import defaultdict
+from collections.abc import Callable
 from contextlib import contextmanager
 from enum import Enum
-from os import listdir
 from pathlib import Path
 from pprint import pformat
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 from textwrap import wrap
-from typing import List, Callable, Union, Dict, NamedTuple, Tuple, TypeVar, Type
+from typing import ClassVar, NamedTuple, TypeVar
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
@@ -47,7 +47,7 @@ class TextConverter:
 
     alias: str = ''
 
-    register: Dict[str, Type[TypeTextConverter]] = {}
+    register: ClassVar[dict[str, type[TypeTextConverter]]] = {}
 
     def __init_subclass__(cls):
         super().__init_subclass__()
@@ -58,8 +58,10 @@ class TextConverter:
 
     def dump(self, value: str, *, dest: Path) -> Path:
         target = dest.with_suffix(f'.{self.alias}')
-        with open(target, 'w') as f:
+
+        with target.open('w') as f:
             f.write(self._convert(value))
+
         return target
 
     @classmethod
@@ -113,7 +115,7 @@ class SponsrDumper:
     _fname_conf: str = 'sponsrdump.json'
     _fname_auth: str = 'sponsrdump_auth.txt'
 
-    _headers: dict = {
+    _headers: ClassVar[dict] = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0',
         'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'ru,en;q=0.9',
@@ -129,8 +131,8 @@ class SponsrDumper:
     def __init__(self, url: str):
         self.url = url
         self.project_id: str = ''
-        self._collected: List[dict] = []
-        self._dumped: Dict[str, str] = {}
+        self._collected: list[dict] = []
+        self._dumped: dict[str, str] = {}
 
         session = requests.Session()
         session.headers = self._headers
@@ -163,7 +165,7 @@ class SponsrDumper:
 
         LOGGER.info(f'  Generating text video: {path_target} ...')
 
-        with open(src) as f:
+        with src.open() as f:
             text = f.read()
 
         text = text.strip().strip('_ ').strip().replace('\u200e', '').replace('\u200f', '')
@@ -174,7 +176,7 @@ class SponsrDumper:
 
         vid_len = (len(lines) * sec_per_line) + sec_plus
 
-        with open(path_tmp_text, 'w') as f:
+        with path_tmp_text.open('w') as f:
             f.write('\r\n'.join(lines))
 
         cls.call(f'ffmpeg -loop 1 -t {vid_len} -i "{path_bg}" "{path_tmp_bg}"', cwd=src.parent)
@@ -219,7 +221,7 @@ class SponsrDumper:
     def _concat_chunks(cls, *, src: Path, suffix: str) -> Path:
 
         with chdir(src):
-            src_files = sorted([f'{fname}' for fname in listdir(src) if f'_{suffix}.' in fname])
+            src_files = sorted([f'{fname}' for fname in src.iterdir() if f'_{suffix}.' in f'{fname}'])
             target = f'{uuid4()}.mp4'
             src_files_str = '" "'.join(src_files)
             cls.call(f'cat "{src_files_str}" > "{target}"', cwd=src)
@@ -236,7 +238,7 @@ class SponsrDumper:
     @classmethod
     def _mpd_parse(cls, fpath: Path):
 
-        with open(fpath) as f:
+        with fpath.open() as f:
             xml = f.read()
 
         xml = re.sub('xmlns(:[^=]*)?="[^"]+"', '', xml)
@@ -344,9 +346,8 @@ class SponsrDumper:
 
             response.raise_for_status()
 
-            with open(dest_tmp or dest, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=1024):
-                    f.write(chunk)
+            with Path(dest_tmp or dest).open('wb') as f:
+                f.writelines(response.iter_content(chunk_size=1024))
 
         if is_mpd:
             try:
@@ -361,7 +362,7 @@ class SponsrDumper:
         dest_tmp = (mpd.parent / 'tmp').absolute()
         dest_tmp.mkdir(parents=True, exist_ok=True)
 
-        def download_all(urls: List[Tuple[str, str]], *, suffix: str):
+        def download_all(urls: list[tuple[str, str]], *, suffix: str):
 
             for idx, (url, range) in enumerate(urls, 1):
                 file_dest = dest_tmp / f'{idx:>05}_{suffix}{dest.suffix}'
@@ -436,9 +437,11 @@ class SponsrDumper:
 
         for file_info in post.get('files') or []:
             assert file_info['file_category'] == 'podcast', f'Unsupported file category found: {file_info}'
+
             if not file_info['file_duration']:
                 LOGGER.debug(f'Probably missing {file_info["file_link"]}. Skipped.')
                 continue
+
             file_info['file_type'] = FileType.AUDIO
             audio.append(file_info)
 
@@ -457,7 +460,7 @@ class SponsrDumper:
 
         for image in soup.find_all('img'):
             if (src := image['src']) and (image_name := Path(urlparse(src).path).name):
-                images.append({
+                images.append({  # noqa: PERF401
                     'file_id': image_name,
                     'file_title': image_name,
                     'file_path': src,
@@ -482,7 +485,7 @@ class SponsrDumper:
                     'file_type': FileType.VIDEO,
                 })
 
-    def _collect_posts(self, *, project_id: str, func_filter: Callable = None) -> List[dict]:
+    def _collect_posts(self, *, project_id: str, func_filter: Callable[[dict], bool] | None = None) -> list[dict]:
 
         posts_all = []
         rows_seen = 0
@@ -528,7 +531,7 @@ class SponsrDumper:
 
         try:
 
-            with open(path) as f:
+            with path.open() as f:
                 data = f.read().rstrip(';')
                 self._session.cookies = cookiejar_from_dict(
                     dict(
@@ -536,14 +539,15 @@ class SponsrDumper:
                         for line in data.split(';')
                     )
                 )
+
         except ValueError:
-            raise SponsrDumperError(f'File {path} contents is not valid.')
+            raise SponsrDumperError(f'File {path} contents is not valid.') from None
 
     def _auth_write(self):
-        with open(Path(self._fname_auth), 'w') as f:
+        with Path(self._fname_auth).open('w') as f:
             return f.write(
                 ';'.join([
-                    '%s=%s' % (key, val)
+                    f'{key}={val}'
                     for key, val in self._session.cookies.get_dict().items()
                 ])
             )
@@ -558,7 +562,7 @@ class SponsrDumper:
         else:
             LOGGER.info(f'Configuration is loaded from {fname} ...')
 
-        with open(fname) as f:
+        with fname.open() as f:
             data = json.load(f)
 
         self._dumped = data.get('dumped', {})
@@ -567,7 +571,7 @@ class SponsrDumper:
 
         fname = Path(self._fname_conf)
 
-        with open(fname, 'w') as f:
+        with fname.open('w') as f:
             json.dump(
                 {
                     'dumped': self._dumped,
@@ -586,7 +590,7 @@ class SponsrDumper:
         finally:
             self._conf_save()
 
-    def search(self, *, func_filter: Callable = None) -> int:
+    def search(self, *, func_filter: Callable[[dict], bool] | None = None) -> int:
 
         LOGGER.info(f'Searching data for {self.url} ...')
 
@@ -607,17 +611,18 @@ class SponsrDumper:
 
     def dump(
         self,
-        dest: Union[str, Path],
+        dest: str | Path,
         *,
-        func_filename: Callable = None,
+        func_filename: Callable[[dict], bool] | None = None,
         reverse: bool = True,
         audio: bool = True,
         video: bool = True,
         images: bool = True,
-        text: Union[bool, str] = True,
+        text: bool | str = True,
         text_to_video: bool = True,
-        prefer_video: VideoPreference = VideoPreference(),
+        prefer_video: VideoPreference | None = None,
     ):
+        prefer_video = prefer_video or VideoPreference()
 
         LOGGER.info(f'Start dump using preference: {prefer_video} ...')
 
@@ -696,7 +701,7 @@ class SponsrDumper:
                                 )
 
                             except HTTPError:
-                                LOGGER.debug(f'{pformat(file_info, indent=2)}')
+                                LOGGER.debug('%s', pformat(file_info, indent=2))
                                 raise
 
                         if file_type is FileType.TEXT and text:
