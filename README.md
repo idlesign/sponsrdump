@@ -2,6 +2,12 @@
 
 <https://github.com/idlesign/sponsrdump>
 
+[![PyPI - Version](https://img.shields.io/pypi/v/sponsrdump)](https://pypi.python.org/pypi/sponsrdump)
+[![License](https://img.shields.io/pypi/l/sponsrdump)](https://pypi.python.org/pypi/sponsrdump)
+[![Coverage](https://img.shields.io/coverallsCoverage/github/idlesign/sponsrdump)](https://coveralls.io/r/idlesign/sponsrdump)
+
+## Описание
+
 *Приложение позволяет получить локальные копии материалов, на которые у вас уже имеется подписка, с сайта sponsr.ru.*
 
 Умеет скачивать тексты (статьи), аудио (подкаст), видео.
