@@ -76,7 +76,7 @@ $ uv tool upgrade sponsrdump
 
 
 ```shell
-$ sponsrdumpy "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
+$ sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок " --to here/ --prefer-video 640x360 --text-to-video
 ```
 
 ### Из кода
