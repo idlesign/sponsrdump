@@ -97,10 +97,10 @@ dumper.dump('here/', prefer_video=VideoPreference(frame='640x360'), text_to_vide
 
 ```shell
 $ make run
-$ sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+$ uvx sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
 ```
 
-Можно и без ``make`` и ``shell``, в данном примере монитируем auth и json файлы и каталог ``dump``, чтобы сохранять данные вне контейнера:
+Можно и без ``make`` и ``shell``, в данном примере монтируем auth и json файлы и каталог ``dump``, чтобы сохранять данные вне контейнера:
 
 ```shell
 $ docker build -t sponsrdump .
