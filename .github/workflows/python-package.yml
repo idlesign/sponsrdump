@@ -1,0 +1,39 @@
+name: Python package
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v6
+    - name: Install deps
+      run: |
+        uv sync --only-group tests
+        uv pip install coveralls
+    - uses: astral-sh/ruff-action@v3
+      with:
+        args: check
+    - name: Run tests
+      env:
+        GITHUB_TOKEN: ${{ secrets.github_token }}
+      run: |
+        uv run coverage run -m pytest
+        uv run coveralls --service=github
