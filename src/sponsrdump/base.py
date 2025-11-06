@@ -26,6 +26,7 @@ from requests.cookies import cookiejar_from_dict
 LOGGER = logging.getLogger(__name__)
 PATH_BASE = Path(__file__).parent.absolute()
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
+RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
 
 
 class FileType(Enum):
@@ -238,7 +239,7 @@ class SponsrDumper:
         with open(fpath) as f:
             xml = f.read()
 
-        xml = re.sub("xmlns(:[^=]*)?='[^']+'", '', xml)
+        xml = re.sub('xmlns(:[^=]*)?="[^"]+"', '', xml)
 
         root = etree.fromstring(xml, etree.XMLParser(
             no_network=True,
@@ -264,16 +265,30 @@ class SponsrDumper:
                 bucket = trash
 
             for repres in aset.findall('Representation'):
+                repres_attrib = repres.attrib
 
-                if audio_rate := repres.attrib.get('audioSamplingRate'):
+                LOGGER.debug(f'Representation found: {repres_attrib}')
+
+                if audio_rate := repres_attrib.get('audioSamplingRate'):
                     ident = audio_rate
 
                 else:
-                    ident = f"{repres.attrib['width']}x{repres.attrib['height']}"
+                    ident = f"{repres_attrib['width']}x{repres_attrib['height']}"
 
-                for url_element in repres[0]:
-                    url = url_element.attrib.get('sourceURL') or url_element.attrib.get('media')
-                    range = url_element.attrib.get('range') or url_element.attrib.get('mediaRange')
+                base_url = repres.find('BaseURL').text
+
+                for segment_element in repres.find('SegmentList'):
+                    attrib = segment_element.attrib
+                    url = attrib.get('sourceURL') or attrib.get('media')
+                    range = attrib.get('range') or attrib.get('mediaRange')
+
+                    if url:
+                        # prepend base
+                        url = f'{base_url}{url}'
+
+                    elif range:
+                        # range without url. typically for audio
+                        url = base_url
 
                     if url and url not in bucket[ident]:
                         bucket[ident].append((url, range))
@@ -355,26 +370,32 @@ class SponsrDumper:
         try:
             video, audio = self._mpd_parse(mpd)
 
-            download_all(
-                video.get(prefer_video.frame) or video[list(video.keys())[-1]],
-                suffix='vid'
-            )
-            LOGGER.info('  Joining video chunks ...')
-            f_video = self._concat_chunks(src=dest_tmp, suffix='vid')
+            videos = video.get(prefer_video.frame) or (video[list(video.keys())[-1]] if video else [])
+            audios = audio.get(prefer_video.sound) or (audio[list(audio.keys())[-1]] if audio else [])
 
-            download_all(
-                audio.get(prefer_video.sound) or audio[list(audio.keys())[-1]],
-                suffix='aud'
-            )
-            LOGGER.info('  Joining audio chunks ...')
-            f_audio = self._concat_chunks(src=dest_tmp, suffix='aud')
+            LOGGER.debug(f'Found: video {len(videos)}; audio {len(audios)}.')
 
-            # join video + audio
-            LOGGER.info('  Compiling final video ...')
-            self.call(
-                f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
-                cwd=dest_tmp,
-            )
+            download_all(videos, suffix='vid')
+
+            f_video = ''
+            if videos:
+                LOGGER.info('  Joining video chunks ...')
+                f_video = self._concat_chunks(src=dest_tmp, suffix='vid')
+
+            download_all(audios, suffix='aud')
+
+            f_audio = ''
+            if audios:
+                LOGGER.info('  Joining audio chunks ...')
+                f_audio = self._concat_chunks(src=dest_tmp, suffix='aud')
+
+            if videos or audios:
+                # join video + audio
+                LOGGER.info('  Compiling final video ...')
+                self.call(
+                    f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
+                    cwd=dest_tmp,
+                )
 
         finally:
             _CLEANUP and shutil.rmtree(dest_tmp)
@@ -445,13 +466,19 @@ class SponsrDumper:
 
         for iframe in soup.find_all('iframe'):
 
-            if 'video' in (src := iframe['src']) and (file_id := parse_qs(urlparse(src).query).get('video_id')):
+            attr_src = iframe.get('data-url') or iframe.get('src')  # 'src' is legacy location
+
+            if 'video' in attr_src and (file_id := parse_qs(urlparse(attr_src).query).get('video_id')):
                 # workaround bogus links like /post/video/?video_id=xxx?poster_id=yyy
                 file_id = file_id[0].partition('?')[0]
+                url_mpd = f'https://kinescope.io/{file_id}/master.mpd'
+
+                LOGGER.debug(f'Expected mpd url: {url_mpd}')
+
                 video.append({
                     'file_id': file_id,
                     'file_title': f'{post_title}.mp4',
-                    'file_path': f'https://kinescope.io/{file_id}/master.mpd',
+                    'file_path': url_mpd,
                     'file_type': FileType.VIDEO,
                 })
 
@@ -482,8 +509,13 @@ class SponsrDumper:
 
     def _get_project_id(self) -> str:
 
-        soup = self._get_soup(self._get_response(self.url).text)
-        project_id = soup.find_all(id='project_id')[0]['value']
+        html = self._get_response(self.url).text
+        matched = RE_PROJECT_ID.search(html)
+
+        if not matched:
+            raise SponsrDumperError('Unable to get project ID')
+
+        project_id = matched[1]
 
         return project_id
 
