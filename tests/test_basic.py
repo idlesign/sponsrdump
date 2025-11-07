@@ -16,9 +16,9 @@ from sponsrdump.base import (
 )
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_popen(monkeypatch):
-    """Фикстура для замены Popen на MockPopen."""
+    """Фикстура для замены Popen на MockPopen. Применяется автоматически ко всем тестам."""
     commands: list[str] = []
 
     class MockPopen:
