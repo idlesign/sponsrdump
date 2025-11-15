@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_popen(monkeypatch):
     """Фикстура для замены Popen на MockPopen."""
     commands: list[str] = []
