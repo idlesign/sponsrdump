@@ -91,11 +91,13 @@ def concat_files(*, src: Path, suffix: str, target_name: str) -> Path:
 
     with chdir(src):
         src_files = sorted([f'{fname}' for fname in src.iterdir() if f'_{suffix}.' in f'{fname}'])
+        target = src / target_name
 
-        with open(target_name, "wb") as out:
+        with target.open("wb") as out:
             for src_file in src_files:
-                with open(src_file, "rb") as f:
+                source = src / src_file
+                with source.open("rb") as f:
                     copyfileobj(f, out)
-                (src / src_file).unlink()
+                source.unlink()
 
-    return src / target_name
+    return target

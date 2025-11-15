@@ -4,7 +4,7 @@ import shlex
 import shutil
 from collections import defaultdict
 from collections.abc import Callable
-from contextlib import chdir, contextmanager
+from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 from pprint import pformat
@@ -20,7 +20,7 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, call, convert_text_to_video, concat_files
+from .utils import LOGGER, call, concat_files, convert_text_to_video
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
