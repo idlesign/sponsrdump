@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 from requests import HTTPError
@@ -7,55 +6,15 @@ from responses import matchers
 
 from sponsrdump.base import (
     FileType,
-    HtmlConverter,
-    MarkdownConverter,
     SponsrDumper,
     SponsrDumperError,
-    TextConverter,
     VideoPreference,
 )
-
-
-@pytest.fixture(autouse=True)
-def mock_popen(monkeypatch):
-    """Фикстура для замены Popen на MockPopen. Применяется автоматически ко всем тестам."""
-    commands: list[str] = []
-
-    class MockPopen:
-        """Имитатор Popen, который сохраняет все полученные команды."""
-
-        def __init__(self, cmd: str, **kwargs):
-            self.cmd = cmd
-            self.kwargs = kwargs
-            self.returncode = 0
-            self.stdout_data = b""
-            self.stderr_data = b""
-            commands.append(cmd)
-
-        def communicate(self):
-            return self.stdout_data, self.stderr_data
-
-    monkeypatch.setattr("sponsrdump.base.Popen", MockPopen)
-    class Fixture:
-        pass
-    fixture = Fixture()
-    fixture.commands = commands
-    return fixture
-
-
-@pytest.fixture
-def auth_file(tmp_path, monkeypatch):
-    """Создает временный файл авторизации."""
-    auth_path = tmp_path / "sponsrdump_auth.txt"
-    auth_path.write_text("session_id=test_session;csrf_token=test_token")
-    monkeypatch.chdir(tmp_path)
-    return auth_path
-
-
-@pytest.fixture
-def project_html(datafix_read):
-    """Фикстура для HTML проекта."""
-    return datafix_read("project.html")
+from sponsrdump.converters import (
+    HtmlConverter,
+    MarkdownConverter,
+    TextConverter,
+)
 
 
 @pytest.fixture
@@ -496,31 +455,6 @@ def test_dump_skip_existing_file(dumper_with_posts_data, tmp_path, response_mock
         dest = tmp_path / "dump"
         dumper.dump(dest, text=True, audio=False, video=False, images=False)
         assert dest.exists()
-
-
-def test_call_error(mock_popen, monkeypatch):
-    class ErrorMockPopen:
-        def __init__(self, cmd: str, **kwargs):
-            self.cmd = cmd
-            self.returncode = 1
-            self.stdout_data = b"stdout error"
-            self.stderr_data = b"stderr error"
-
-        def communicate(self):
-            return self.stdout_data, self.stderr_data
-
-    monkeypatch.setattr("sponsrdump.base.Popen", ErrorMockPopen)
-    with pytest.raises(SponsrDumperError, match="Command error"):
-        SponsrDumper.call("false", cwd=Path.cwd())
-
-
-def test_text_to_video(mock_popen, tmp_path):
-    src = tmp_path / "test.md"
-    src.write_text("Test content\nwith multiple lines\nfor video generation")
-    result = SponsrDumper.text_to_video(src)
-    assert result.suffix == ".mp4"
-    assert "[txt]" in result.stem
-    assert any("ffmpeg" in cmd for cmd in mock_popen.commands)
 
 
 @pytest.mark.parametrize(("text_format", "text_to_video_enabled"), [

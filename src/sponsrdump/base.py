@@ -1,30 +1,27 @@
 import json
-import logging
-import os
 import re
 import shlex
 import shutil
 from collections import defaultdict
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import chdir, contextmanager
 from enum import Enum
 from pathlib import Path
 from pprint import pformat
-from subprocess import PIPE, Popen
-from textwrap import wrap
-from typing import ClassVar, NamedTuple, TypeVar
+from typing import ClassVar, NamedTuple
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import requests
 from bs4 import BeautifulSoup
-from html2text import html2text
 from lxml import etree
 from requests import HTTPError
 from requests.cookies import cookiejar_from_dict
 
-LOGGER = logging.getLogger(__name__)
-PATH_BASE = Path(__file__).parent.absolute()
+from .converters import MarkdownConverter, TextConverter
+from .exceptions import SponsrDumperError
+from .utils import LOGGER, call, convert_text_to_video
+
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
 
@@ -40,72 +37,10 @@ class FileType(Enum):
 _CLEANUP = True
 
 
-TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
-
-
-class TextConverter:
-
-    alias: str = ''
-
-    register: ClassVar[dict[str, type[TypeTextConverter]]] = {}
-
-    def __init_subclass__(cls):
-        super().__init_subclass__()
-        cls.register[cls.alias] = cls
-
-    def _convert(self, value: str) -> str:
-        raise NotImplementedError
-
-    def dump(self, value: str, *, dest: Path) -> Path:
-        target = dest.with_suffix(f'.{self.alias}')
-
-        with target.open('w') as f:
-            f.write(self._convert(value))
-
-        return target
-
-    @classmethod
-    def spawn(cls, alias: str) -> 'TypeTextConverter':
-        return cls.register[alias]()
-
-
-class HtmlConverter(TextConverter):
-
-    alias = 'html'
-
-    def _convert(self, value: str) -> str:
-        return value
-
-
-class MarkdownConverter(TextConverter):
-
-    alias = 'md'
-
-    def _convert(self, value: str) -> str:
-        return html2text(value)
-
-
 class VideoPreference(NamedTuple):
 
     frame: str = 'best'
     sound: str = 'best'
-
-
-@contextmanager
-def chdir(where: Path):
-
-    current_dir = Path.cwd()
-
-    try:
-        os.chdir(where)
-        yield
-
-    finally:
-        os.chdir(current_dir)
-
-
-class SponsrDumperError(Exception):
-    """Base exception."""
 
 
 class SponsrDumper:
@@ -142,89 +77,13 @@ class SponsrDumper:
         self._auth_read()
 
     @classmethod
-    def text_to_video(cls, src: Path) -> Path:
-
-        font = 'tahoma.ttf'
-        line_width = 80
-        sec_per_line = 3
-        sec_plus = 5
-        line_space = 20
-        font_size = 25
-
-        fname_stem = src.stem
-
-        path_bg = PATH_BASE / 'bg.png'
-        path_tmp_bg = src.with_suffix('.mp4').with_stem(f'{fname_stem}_bg')
-        path_tmp_bg.unlink(missing_ok=True)
-
-        path_tmp_text = src.with_suffix('.txt').with_stem(f'{fname_stem}_txt')
-        path_tmp_text.unlink(missing_ok=True)
-
-        path_target = src.with_suffix('.mp4').with_stem(f'{fname_stem} [txt]')
-        path_target.unlink(missing_ok=True)
-
-        LOGGER.info(f'  Generating text video: {path_target} ...')
-
-        with src.open() as f:
-            text = f.read()
-
-        text = text.strip().strip('_ ').strip().replace('\u200e', '').replace('\u200f', '')
-
-        lines = []
-        for line in text.splitlines():
-            lines.extend(wrap(line, width=line_width))
-
-        vid_len = (len(lines) * sec_per_line) + sec_plus
-
-        with path_tmp_text.open('w') as f:
-            f.write('\r\n'.join(lines))
-
-        cls.call(f'ffmpeg -loop 1 -t {vid_len} -i "{path_bg}" "{path_tmp_bg}"', cwd=src.parent)
-
-        try:
-            cls.call(
-                (
-                    f'ffmpeg -i "{path_tmp_bg}" -filter_complex "'
-                    '[0]split[txt][orig];'
-                    '[txt]drawtext='
-                    f'fontfile={font}:'
-                    f'fontsize={font_size}:'
-                    'fontcolor=white:'
-                    f'x=(w-text_w)/2+{line_space}:'
-                    f'y=h-{line_space}*t:'
-                    f'textfile=\'{path_tmp_text}\':'
-                    'bordercolor=black:'
-                    f'line_spacing={line_space}:'
-                    'borderw=3[txt];'
-                    '[orig]crop=iw:50:0:0[orig];'
-                    '[txt][orig]overlay" '
-                    f'-c:v libx264 -y -preset ultrafast -t {vid_len} "{path_target}"'
-                ),
-                cwd=src.parent,
-            )
-
-        finally:
-            path_tmp_bg.unlink(missing_ok=True)
-            path_tmp_text.unlink(missing_ok=True)
-
-        return path_target
-
-    @classmethod
-    def call(cls, cmd: str, *, cwd: Path, capture_out: bool = True):
-        prc = Popen(cmd, cwd=cwd, shell=True, stdout=PIPE if capture_out else None, stderr=PIPE)
-        out, err = [item.decode() if item else '' for item in prc.communicate()]
-
-        if prc.returncode:
-            raise SponsrDumperError(f'Command error:\n{cmd}\n\n{out}\n\n{err}\n----------')
-
-    @classmethod
     def _concat_chunks(cls, *, src: Path, suffix: str) -> Path:
 
         with chdir(src):
             src_files = sorted([f'{fname}' for fname in src.iterdir() if f'_{suffix}.' in f'{fname}'])
             target = f'{uuid4()}.mp4'
             src_files_str = '" "'.join(src_files)
-            cls.call(f'cat "{src_files_str}" > "{target}"', cwd=src)
+            call(f'cat "{src_files_str}" > "{target}"', cwd=src)
 
             for src_file in src_files:
                 (src / src_file).unlink()
@@ -393,7 +252,7 @@ class SponsrDumper:
             if videos or audios:
                 # join video + audio
                 LOGGER.info('  Compiling final video ...')
-                self.call(
+                call(
                     f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
                     cwd=dest_tmp,
                 )
@@ -717,7 +576,7 @@ class SponsrDumper:
                                     converter_alias_md
                                 ).dump(file_info['__content'], dest=dest_filename)
 
-                                self.text_to_video(text_to_video_src_filename)
+                                convert_text_to_video(text_to_video_src_filename)
 
                                 if conversion_required:
                                     text_to_video_src_filename.unlink(missing_ok=True)
