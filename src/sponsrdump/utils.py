@@ -1,5 +1,7 @@
 import logging
+from contextlib import chdir
 from pathlib import Path
+from shutil import copyfileobj
 from subprocess import PIPE, Popen
 from textwrap import wrap
 
@@ -83,3 +85,17 @@ def convert_text_to_video(src: Path) -> Path:
         path_tmp_text.unlink(missing_ok=True)
 
     return path_target
+
+
+def concat_files(*, src: Path, suffix: str, target_name: str) -> Path:
+
+    with chdir(src):
+        src_files = sorted([f'{fname}' for fname in src.iterdir() if f'_{suffix}.' in f'{fname}'])
+
+        with open(target_name, "wb") as out:
+            for src_file in src_files:
+                with open(src_file, "rb") as f:
+                    copyfileobj(f, out)
+                (src / src_file).unlink()
+
+    return src / target_name

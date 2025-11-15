@@ -20,7 +20,7 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, call, convert_text_to_video
+from .utils import LOGGER, call, convert_text_to_video, concat_files
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
@@ -78,17 +78,7 @@ class SponsrDumper:
 
     @classmethod
     def _concat_chunks(cls, *, src: Path, suffix: str) -> Path:
-
-        with chdir(src):
-            src_files = sorted([f'{fname}' for fname in src.iterdir() if f'_{suffix}.' in f'{fname}'])
-            target = f'{uuid4()}.mp4'
-            src_files_str = '" "'.join(src_files)
-            call(f'cat "{src_files_str}" > "{target}"', cwd=src)
-
-            for src_file in src_files:
-                (src / src_file).unlink()
-
-        return src / target
+        return concat_files(src=src, suffix=suffix, target_name=f'{uuid4()}.mp4')
 
     @classmethod
     def _get_soup(cls, html: str) -> BeautifulSoup:
