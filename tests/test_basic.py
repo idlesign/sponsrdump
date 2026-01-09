@@ -17,86 +17,12 @@ from sponsrdump.converters import (
 )
 
 
-@pytest.fixture
-def base_posts_response():
-    """Базовый ответ c постами."""
-    return {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": "<p>Test content</p>",
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
+def test_sponsr_dumper_smoke(remote_data, mock_popen, response_mock, tmp_path, data_audio):
 
+    remote_data.text = '<p>Test content</p><iframe data-url="/post/video/?video_id=test123"></iframe>'
+    remote_data.files = [data_audio]
 
-@pytest.fixture
-def dumper_with_posts_data(auth_file, project_html, base_posts_response):
-    """Данные для создания dumper c постами."""
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-    posts_json = json.dumps(base_posts_response)
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
-    ]
-    return {"url": url, "project_id": project_id, "rules": rules}
-
-
-def test_sponsr_dumper_smoke(mock_popen, datafix_read, auth_file, response_mock, tmp_path):
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-
-    project_html = datafix_read("project.html")
-    some_mpd = datafix_read("some_mpd.xml")
-
-    posts_response = {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": '<p>Test content</p><iframe data-url="/post/video/?video_id=test123"></iframe>',
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [
-                        {
-                            "file_id": "audio123",
-                            "file_category": "podcast",
-                            "file_duration": 100,
-                            "file_link": "https://example.com/audio.mp3",
-                            "file_title": "audio.mp3",
-                            "file_path": "https://example.com/audio.mp3",
-                        }
-                    ],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
-
-    posts_json = json.dumps(posts_response)
-
-    # Формируем правила для response_mock
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
-        "GET https://kinescope.io/test123/master.mpd -> 200 :" + some_mpd,
-        "GET https://example.com/audio.mp3 -> 200 :fake_audio_data",
-    ]
-
-    with response_mock(rules, assert_all_requests_are_fired=False) as mock:
+    with response_mock(remote_data.rules, assert_all_requests_are_fired=False) as mock:
         # Добавляем дополнительные моки для Range запросов через responses API
 
         base_video_url_1080 = (
@@ -140,11 +66,11 @@ def test_sponsr_dumper_smoke(mock_popen, datafix_read, auth_file, response_mock,
                 match=[matchers.header_matcher({"Range": f"bytes={range_val}"})],
             )
 
-        dumper = SponsrDumper(url)
+        dumper = SponsrDumper(remote_data.url)
         found = dumper.search()
 
         assert found == 1
-        assert dumper.project_id == project_id
+        assert dumper.project_id == remote_data.project_id
 
         dest = tmp_path / "dump"
         dumper.dump(
@@ -240,141 +166,44 @@ def test_conf_load_existing(auth_file, tmp_path):
     assert dumper._dumped == {"f_123": "test.txt"}
 
 
-def test_normalize_files_with_images(auth_file, response_mock, datafix_read):
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-    project_html = datafix_read("project.html")
-    posts_response = {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": '<p>Test content</p><img src="https://example.com/image.jpg" />',
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
-    posts_json = json.dumps(posts_response)
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
-    ]
-    with response_mock(rules):
-        dumper = SponsrDumper(url)
+def test_normalize_files_with_images(response_mock, remote_data):
+    remote_data.text = '<p>Test content</p><img src="https://example.com/image.jpg" />'
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         post = dumper._collected[0]
         assert len(post["__files"]["images"]) > 0
         assert post["__files"]["images"][0]["file_id"] == "image.jpg"
 
 
-def test_normalize_files_no_duration(auth_file, response_mock, datafix_read):
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-    project_html = datafix_read("project.html")
-    posts_response = {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": "<p>Test content</p>",
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [
-                        {
-                            "file_id": "audio123",
-                            "file_category": "podcast",
-                            "file_duration": 0,
-                            "file_link": "https://example.com/audio.mp3",
-                            "file_title": "audio.mp3",
-                            "file_path": "https://example.com/audio.mp3",
-                        }
-                    ],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
-    posts_json = json.dumps(posts_response)
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
-    ]
-    with response_mock(rules):
-        dumper = SponsrDumper(url)
+def test_normalize_files_no_duration(response_mock, remote_data, data_audio):
+    data_audio['file_duration'] = 0
+    remote_data.files = [data_audio]
+    remote_data.request_file = False
+
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         post = dumper._collected[0]
         assert len(post["__files"]["audio"]) == 0
 
 
-def test_normalize_files_unsupported_category(auth_file):
-    dumper = SponsrDumper("https://sponsr.ru/test")
-    post = {
-        "post_id": "123",
-        "post_title": "Test Post",
-        "post_text": "<p>Test content</p>",
-        "files": [
-            {
-                "file_id": "file123",
-                "file_category": "unsupported",
-                "file_duration": 100,
-                "file_link": "https://example.com/file",
-                "file_title": "file",
-                "file_path": "https://example.com/file",
-            }
-        ],
-    }
-    with pytest.raises(AssertionError, match="Unsupported file category"):
-        dumper._normalize_files(post)
+def test_normalize_files_unsupported_category(response_mock, remote_data, data_unknown):
+    remote_data.files = [data_unknown]
+    remote_data.request_file = False
+
+    dumper = SponsrDumper(remote_data.url)
+    with response_mock(remote_data.rules), pytest.raises(AssertionError, match="Unsupported file category"):
+        dumper.search()
 
 
-def test_download_file_relative_url(auth_file, response_mock, tmp_path, datafix_read):
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-    project_html = datafix_read("project.html")
-    posts_response = {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": "<p>Test content</p>",
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [
-                        {
-                            "file_id": "audio123",
-                            "file_category": "podcast",
-                            "file_duration": 100,
-                            "file_link": "/audio.mp3",
-                            "file_title": "audio.mp3",
-                            "file_path": "/audio.mp3",
-                        }
-                    ],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
-    posts_json = json.dumps(posts_response)
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
-        "GET https://sponsr.ru/audio.mp3 -> 200 :fake_audio_data",
-    ]
-    with response_mock(rules):
-        dumper = SponsrDumper(url)
+def test_download_file_relative_url(response_mock, remote_data, data_audio, tmp_path):
+    data_audio['file_link'] = data_audio['file_link'].replace('https://example.com', '')
+    data_audio['file_path'] = data_audio['file_path'].replace('https://example.com', '')
+    remote_data.files = [data_audio]
+
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         dest = tmp_path / "test.mp3"
         dumper._download_file(
@@ -385,35 +214,12 @@ def test_download_file_relative_url(auth_file, response_mock, tmp_path, datafix_
         assert dest.exists()
 
 
-def test_download_file_403_error(auth_file, response_mock, tmp_path, datafix_read):
-    url = "https://sponsr.ru/test_project"
-    project_id = "248"
-    project_html = datafix_read("project.html")
-    posts_response = {
-        "response": {
-            "rows": [
-                {
-                    "post_id": "123",
-                    "level_id": "1",
-                    "post_date": "2024-01-01",
-                    "post_title": "Test Post",
-                    "post_text": "<p>Test content</p>",
-                    "post_url": "/post/123",
-                    "tags": [],
-                    "files": [],
-                }
-            ],
-            "rows_count": 1,
-        }
-    }
-    posts_json = json.dumps(posts_response)
-    rules = [
-        f"GET {url} -> 200 :{project_html}",
-        f"GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}",
+def test_download_file_403_error(response_mock, tmp_path, remote_data):
+    rules = remote_data.rules + [
         "GET https://example.com/file.mp3 -> 403 :Access denied",
     ]
     with response_mock(rules):
-        dumper = SponsrDumper(url)
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         dest = tmp_path / "test.mp3"
         with pytest.raises(HTTPError):
@@ -446,11 +252,11 @@ def test_get_response_xhr(auth_file, response_mock, datafix_read):
         assert response.status_code == 200
 
 
-def test_dump_skip_existing_file(dumper_with_posts_data, tmp_path, response_mock):
+def test_dump_skip_existing_file(remote_data, tmp_path, response_mock):
     conf_file = tmp_path / "sponsrdump.json"
     conf_file.write_text('{"dumped": {"f_123": "001. 001. Test Post.html"}}')
-    with response_mock(dumper_with_posts_data["rules"]):
-        dumper = SponsrDumper(dumper_with_posts_data["url"])
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         dest = tmp_path / "dump"
         dumper.dump(dest, text=True, audio=False, video=False, images=False)
@@ -464,10 +270,10 @@ def test_dump_skip_existing_file(dumper_with_posts_data, tmp_path, response_mock
     ("html", False),
 ])
 def test_dump_text_to_video(
-    dumper_with_posts_data, tmp_path, mock_popen, response_mock, text_format, text_to_video_enabled
+        remote_data, tmp_path, mock_popen, response_mock, text_format, text_to_video_enabled
 ):
-    with response_mock(dumper_with_posts_data["rules"]):
-        dumper = SponsrDumper(dumper_with_posts_data["url"])
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         dest = tmp_path / "dump"
         dumper.dump(
@@ -487,10 +293,10 @@ def test_dump_text_to_video(
             assert any("ffmpeg" in cmd for cmd in mock_popen.commands)
 
 
-def test_dump_http_error_handling(dumper_with_posts_data, tmp_path, response_mock):
-    rules = dumper_with_posts_data["rules"] + ["GET https://example.com/error.jpg -> 500 :Server Error"]
+def test_dump_http_error_handling(remote_data, tmp_path, response_mock):
+    rules = remote_data.rules + ["GET https://example.com/error.jpg -> 500 :Server Error"]
     with response_mock(rules):
-        dumper = SponsrDumper(dumper_with_posts_data["url"])
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         post = dumper._collected[0]
         post["__files"]["images"] = [
@@ -525,11 +331,11 @@ def test_conf_load_new_file(auth_file, tmp_path):
     assert "dumped" in data
 
 
-def test_dump_func_filename_custom(dumper_with_posts_data, tmp_path, response_mock):
+def test_dump_func_filename_custom(remote_data, tmp_path, response_mock):
     def custom_filename(post_info, file_info):
         return f"custom_{post_info['post_id']}_{file_info['file_id']}.html"
-    with response_mock(dumper_with_posts_data["rules"]):
-        dumper = SponsrDumper(dumper_with_posts_data["url"])
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         dest = tmp_path / "dump"
         dumper.dump(
@@ -558,9 +364,9 @@ def test_normalize_files_with_video_iframe(auth_file, iframe_attr, iframe_value,
     assert post["__files"]["video"][0]["file_id"] == expected_id
 
 
-def test_collect_posts_with_filter(dumper_with_posts_data, response_mock):
-    with response_mock(dumper_with_posts_data["rules"]):
-        dumper = SponsrDumper(dumper_with_posts_data["url"])
+def test_collect_posts_with_filter(remote_data, response_mock):
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
         dumper.search()
         original_count = len(dumper._collected)
 
