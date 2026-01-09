@@ -1,6 +1,6 @@
 # sponsrdump changelog
 
-### Unreleased
+### v0.1.3 [2026-01-09]
 * ** Fixed post text conversion (fixes #14).
 
 ### v0.1.2 [2025-11-15]
