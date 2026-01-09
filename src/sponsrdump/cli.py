@@ -2,11 +2,12 @@ import argparse
 import logging
 
 from .base import SponsrDumper, TextConverter, VideoPreference
+from .converters import HtmlConverter
 
 LOGGER = logging.getLogger(__name__)
 
 
-def main():
+def main(*arguments: str | None) -> None:
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -22,7 +23,7 @@ def main():
     parser.add_argument(
         '--text-fmt', help=(
             f'Формат для текстовых данных. Варианты: {", ".join(sorted(TextConverter.register.keys()))}'),
-        default='txt')
+        default=HtmlConverter.alias)
     parser.add_argument(
         '--no-audio', help='Не следует скачивать аудио', action='store_true')
     parser.add_argument(
@@ -34,7 +35,7 @@ def main():
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
 
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format='%(levelname)-8s: %(message)s')
 

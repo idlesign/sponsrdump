@@ -381,7 +381,7 @@ class SponsrDumper:
         try:
 
             with path.open() as f:
-                data = f.read().rstrip(';')
+                data = f.read().strip().rstrip(';')
                 self._session.cookies = cookiejar_from_dict(
                     dict(
                         line.strip().split('=', 1)
