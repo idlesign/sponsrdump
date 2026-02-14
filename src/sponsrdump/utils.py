@@ -1,4 +1,5 @@
 import logging
+import re
 from contextlib import chdir
 from pathlib import Path
 from shutil import copyfileobj
@@ -85,6 +86,10 @@ def convert_text_to_video(src: Path) -> Path:
         path_tmp_text.unlink(missing_ok=True)
 
     return path_target
+
+
+def match_value(val: str, *, rule: str) -> bool:
+    return bool(re.search(rule, val))
 
 
 def concat_files(*, src: Path, suffix: str, target_name: str) -> Path:

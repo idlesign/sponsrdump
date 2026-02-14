@@ -3,6 +3,7 @@ import logging
 
 from .base import SponsrDumper, TextConverter, VideoPreference
 from .converters import HtmlConverter
+from .utils import match_value
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +16,10 @@ def main(*arguments: str | None) -> None:
     parser.add_argument(
         '--debug', help='Вывести отладочную информацию', action='store_true')
     parser.add_argument(
-        '--title', help='Фильтр заголовка для отбора статей', default='')
+        '--filter',
+        help='Фильтр для отбора статей (по id, заголовку, тексту). Регулярное выражение', default='')
+    parser.add_argument(
+        '--title', help='Фильтр заголовка для отбора статей. Регулярное выражение', default='')
     parser.add_argument(
         '--to', help='Путь назначения для файлов', default='dump/')
     parser.add_argument(
@@ -43,8 +47,18 @@ def main(*arguments: str | None) -> None:
 
     filter_func = None
 
-    if title := args.title.strip():
-        filter_func = lambda post_info: title in post_info['post_title']  # noqa: E731
+    def filterer(post_info: dict) -> bool:
+        for key in ['post_title', 'post_id', 'post_text', 'post_url']:
+            result = match_value(post_info[key], rule=filter_rule)
+            if result:
+                return True
+        return False
+
+    if filter_rule := args.filter.strip():
+        filter_func = filterer
+
+    elif filter_rule := args.title.strip():
+        filter_func = lambda post_info: match_value(post_info['post_title'], rule=filter_rule)  # noqa: E731
 
     dumper.search(func_filter=filter_func)
     dumper.dump(

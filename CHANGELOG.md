@@ -1,5 +1,8 @@
 # sponsrdump changelog
 
+### Unreleased
+* ++ CLI. Add --filter option with regexp support (see #16).
+
 ### v0.1.3 [2026-01-09]
 * ** Fixed post text conversion (fixes #14).
 
