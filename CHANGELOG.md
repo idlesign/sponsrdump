@@ -1,6 +1,6 @@
 # sponsrdump changelog
 
-### Unreleased
+### v0.2.0 [2026-03-30]
 * ++ Added support for attachments (e.g. pdf) download (closes #18).
 * ++ CLI. Add --filter option with regexp support (see #16).
 
