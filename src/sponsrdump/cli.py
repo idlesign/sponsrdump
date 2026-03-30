@@ -33,6 +33,8 @@ def main(*arguments: str | None) -> None:
     parser.add_argument(
         '--no-video', help='Не следует скачивать видео', action='store_true')
     parser.add_argument(
+        '--no-attach', help='Не следует скачивать вложения', action='store_true')
+    parser.add_argument(
         '--no-text', help='Не следует скачивать текст', action='store_true')
     parser.add_argument(
         '--no-images', help='Не следует скачивать изображения', action='store_true')
@@ -67,6 +69,7 @@ def main(*arguments: str | None) -> None:
         audio=not args.no_audio,
         video=not args.no_video,
         images=not args.no_images,
+        attaches=not args.no_attach,
         text=False if args.no_text else args.text_fmt.lower(),
         text_to_video=args.text_to_video
     )

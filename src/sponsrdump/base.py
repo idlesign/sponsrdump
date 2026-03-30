@@ -32,6 +32,7 @@ class FileType(Enum):
     VIDEO = 1
     AUDIO = 2
     IMAGE = 3
+    ATTACH = 4
 
 
 _CLEANUP = True
@@ -276,23 +277,35 @@ class SponsrDumper:
         video = []
         text = []
         images = []
+        attaches = []
 
         post['__files'] = {
             'audio': audio,
             'video': video,
             'text': text,
             'images': images,
+            'attaches': attaches,
         }
 
         for file_info in post.get('files') or []:
-            assert file_info['file_category'] == 'podcast', f'Unsupported file category found: {file_info}'
+            category = file_info['file_category']
 
-            if not file_info['file_duration']:
-                LOGGER.debug(f'Probably missing {file_info["file_link"]}. Skipped.')
-                continue
+            match category:
+                case 'podcast':
+                    if not file_info['file_duration']:
+                        LOGGER.debug(f'Probably missing {file_info["file_link"]}. Skipped.')
+                        continue
 
-            file_info['file_type'] = FileType.AUDIO
-            audio.append(file_info)
+                    file_info['file_type'] = FileType.AUDIO
+                    audio.append(file_info)
+
+                case 'attach':
+                    file_info['file_type'] = FileType.ATTACH
+                    attaches.append(file_info)
+
+                case _:
+                    raise AssertionError(f"Unsupported file category '{category}' found at {post}")
+
 
         post_title = post['post_title'].rstrip('.')
         post_text = post.get('post_text', post.get('post_small_text', '')).strip()
@@ -467,6 +480,7 @@ class SponsrDumper:
         audio: bool = True,
         video: bool = True,
         images: bool = True,
+        attaches: bool = True,
         text: bool | str = True,
         text_to_video: bool = True,
         prefer_video: VideoPreference | None = None,
@@ -498,6 +512,7 @@ class SponsrDumper:
         video and realms.append('video')
         images and realms.append('images')
         text and realms.append('text')
+        attaches and realms.append('attaches')
 
         with self._configuration():
 

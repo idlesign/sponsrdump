@@ -117,6 +117,17 @@ def data_audio() -> dict:
 
 
 @pytest.fixture
+def data_attach() -> dict:
+    return {
+        'file_id': 'attach456',
+        'file_category': 'attach',
+        'file_link': 'https://example.com/some.pdf',
+        'file_title': 'some.pdf',
+        'file_path': 'https://example.com/some.pdf',
+    }
+
+
+@pytest.fixture
 def data_unknown() -> dict:
     return {
         'file_id': 'file123',

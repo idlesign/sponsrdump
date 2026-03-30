@@ -17,10 +17,10 @@ from sponsrdump.converters import (
 )
 
 
-def test_sponsr_dumper_smoke(remote_data, mock_popen, response_mock, tmp_path, data_audio):
+def test_sponsr_dumper_smoke(remote_data, mock_popen, response_mock, tmp_path, data_audio, data_attach):
 
     remote_data.text = '<p>Test content</p><iframe data-url="/post/video/?video_id=test123"></iframe>'
-    remote_data.files = [data_audio]
+    remote_data.files = [data_audio, data_attach]
 
     with response_mock(remote_data.rules, assert_all_requests_are_fired=False) as mock:
         # Добавляем дополнительные моки для Range запросов через responses API
@@ -78,6 +78,7 @@ def test_sponsr_dumper_smoke(remote_data, mock_popen, response_mock, tmp_path, d
             audio=True,
             video=True,
             images=True,
+            attaches=True,
             text=True,
             text_to_video=False,
             prefer_video=VideoPreference(frame='1920x1080', sound='44100'),
@@ -97,8 +98,13 @@ def test_sponsr_dumper_smoke(remote_data, mock_popen, response_mock, tmp_path, d
 
         # Проверяем, что файлы были созданы
         assert dest.exists()
-        files = list(dest.iterdir())
-        assert len(files) > 0
+
+        filenames = [fpath.name for fpath in dest.iterdir()]
+        assert len(filenames) > 0
+
+        filenames = '\n'.join(filenames)
+        assert '.mp3' in filenames
+        assert '.pdf' in filenames
 
 
 def test_text_converter_dump(tmp_path):
