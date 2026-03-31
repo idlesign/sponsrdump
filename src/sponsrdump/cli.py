@@ -41,7 +41,7 @@ def main(*arguments: str | None) -> None:
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
 
-    args = parser.parse_args(arguments)
+    args = parser.parse_args(arguments or None)
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format='%(levelname)-8s: %(message)s')
 
