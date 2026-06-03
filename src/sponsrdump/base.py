@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from pprint import pformat
 from typing import ClassVar, NamedTuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 from uuid import uuid4
 
 import requests
@@ -20,10 +20,20 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, call, concat_files, convert_text_to_video
+from .utils import LOGGER, call, concat_files, convert_text_to_video, progress
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
+RE_PLAYER_OPTIONS = re.compile(r'var playerOptions\s*=\s*(\{.*?\});', re.DOTALL)
+RE_HLS_STREAM = re.compile(r'#EXT-X-STREAM-INF:[^\n]*?RESOLUTION=(\d+x\d+)[^\n]*\n([^\n#][^\n]*)')
+RE_HLS_AUDIO = re.compile(r'#EXT-X-MEDIA:TYPE=AUDIO[^\n]*?URI="([^"]+)"')
+RE_HLS_MAP = re.compile(r'#EXT-X-MAP:URI="([^"]+)"(?:,BYTERANGE="(\d+)(?:@(\d+))?")?')
+RE_HLS_BYTERANGE = re.compile(r'#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?')
+
+
+def sort_idents(container: dict) -> dict:
+    # idents are 'WxH' for video or a numeric string for audio; sort ascending by the leading number
+    return dict(sorted(container.items(), key=lambda items: int(items[0].split('x', 1)[0])))
 
 
 class FileType(Enum):
@@ -85,6 +95,18 @@ class SponsrDumper:
     def _get_soup(cls, html: str) -> BeautifulSoup:
         return BeautifulSoup(html, 'lxml')
 
+    @staticmethod
+    def _kinescope_embed_url(src: str | None) -> str:
+        # an iframe src like 'https://kinescope.io/<embed_id>' points to a player page
+        # exposing signed manifests; legacy '/post/video/?...' forms are not embed urls
+        if not src:
+            return ''
+        parsed = urlparse(src)
+        path = parsed.path.strip('/')
+        if parsed.netloc == 'kinescope.io' and path and '/' not in path:
+            return f'https://kinescope.io/{path}'
+        return ''
+
     @classmethod
     def _mpd_parse(cls, fpath: Path):
 
@@ -145,8 +167,68 @@ class SponsrDumper:
                     if url and url not in bucket[ident]:
                         bucket[ident].append((url, range))
 
-        def sort_idents(container):
-            return dict(sorted(container.items(), key=lambda items: int(items[0].split('x', 1)[0])))
+        video = sort_idents(video)
+        audio = sort_idents(audio)
+
+        LOGGER.info(f"  Found media formats: video - {', '.join(video)}; audio - {', '.join(audio)}.")
+
+        return video, audio
+
+    def _kinescope_get(self, url: str, *, referer: str) -> requests.Response:
+        response = self._session.get(url, headers={'Referer': referer})
+        response.raise_for_status()
+        return response
+
+    @staticmethod
+    def _hls_range(length: str, offset: str | None, cursor: dict) -> str:
+        # HLS byte range is 'length@offset' (offset optional, then continues the previous sub-range).
+        # Convert to an inclusive 'start-end' string as used by Range: bytes=.
+        length = int(length)
+        start = int(offset) if offset is not None else cursor.get('pos', 0)
+        end = start + length - 1
+        cursor['pos'] = end + 1
+        return f'{start}-{end}'
+
+    def _m3u8_segments(self, media_url: str) -> list[tuple[str, str]]:
+        # Fetch a media playlist and return [(segment_url, 'start-end'), ...] with the init segment first.
+        media = self._kinescope_get(media_url, referer='https://kinescope.io/').text
+
+        segments: list[tuple[str, str]] = []
+        cursors: dict[str, dict] = defaultdict(dict)
+
+        if matched := RE_HLS_MAP.search(media):
+            init_url = urljoin(media_url, matched[1])
+            init_range = self._hls_range(matched[2], matched[3], cursors[init_url]) if matched[2] else ''
+            segments.append((init_url, init_range))
+
+        pending_range = ''
+        for line in media.splitlines():
+            line = line.strip()
+
+            if byterange := RE_HLS_BYTERANGE.match(line):
+                pending_range = (byterange[1], byterange[2])
+
+            elif line and not line.startswith('#'):
+                seg_url = urljoin(media_url, line)
+                rng = self._hls_range(*pending_range, cursors[seg_url]) if pending_range else ''
+                segments.append((seg_url, rng))
+                pending_range = ''
+
+        return segments
+
+    def _m3u8_parse(self, master_text: str, master_url: str):
+
+        video = defaultdict(list)
+        audio = defaultdict(list)
+
+        for ident, media_rel in RE_HLS_STREAM.findall(master_text):
+            media_url = urljoin(master_url, media_rel.strip())
+            video[ident].extend(self._m3u8_segments(media_url))
+
+        for media_rel in RE_HLS_AUDIO.findall(master_text):
+            media_url = urljoin(master_url, media_rel.strip())
+            # audio idents must be numeric-leading for sort_idents; a single rendition is selected via 'best'
+            audio[f'{len(audio)}'].extend(self._m3u8_segments(media_url))
 
         video = sort_idents(video)
         audio = sort_idents(audio)
@@ -154,6 +236,28 @@ class SponsrDumper:
         LOGGER.info(f"  Found media formats: video - {', '.join(video)}; audio - {', '.join(audio)}.")
 
         return video, audio
+
+    def _resolve_kinescope(self, embed_url: str, *, dest: Path, prefer_video: VideoPreference):
+        # Fetch the kinescope embed page, read the signed manifest from playerOptions, then download.
+        html = self._kinescope_get(embed_url, referer=f'{self._url_base}/').text
+
+        matched = RE_PLAYER_OPTIONS.search(html)
+        if not matched:
+            raise SponsrDumperError(f'Unable to find player options at {embed_url}')
+
+        sources = json.loads(matched[1])['playlist'][0]['sources']
+
+        if hls_src := (sources.get('hls') or {}).get('src'):
+            master = self._kinescope_get(hls_src, referer='https://kinescope.io/').text
+            video, audio = self._m3u8_parse(master, hls_src)
+            self._media_process(video, audio, dest=dest, prefer_video=prefer_video)
+
+        elif mpd_src := (sources.get('dash') or {}).get('src'):
+            # fall back to the signed DASH manifest
+            self._download_file(mpd_src, dest=dest, prefer_video=prefer_video)
+
+        else:
+            raise SponsrDumperError(f'No playable HLS/DASH source found at {embed_url}')
 
     def _download_file(
             self,
@@ -168,6 +272,14 @@ class SponsrDumper:
         if not url.startswith('http'):
             url = f'{self._url_base}{url}'
 
+        parsed = urlparse(url)
+
+        # a bare kinescope embed url (https://kinescope.io/<embed_id>) — resolve the signed manifest
+        if not range and parsed.netloc == 'kinescope.io' and parsed.path.strip('/').count('/') == 0 \
+                and not parsed.path.endswith('.mpd'):
+            self._resolve_kinescope(url, dest=dest, prefer_video=prefer_video)
+            return
+
         headers = {}
 
         if range:
@@ -179,7 +291,7 @@ class SponsrDumper:
                 'Referer': 'https://kinescope.io/',
             })
 
-        is_mpd = url.endswith('.mpd')
+        is_mpd = parsed.path.endswith('.mpd')
         dest_tmp = None
 
         if is_mpd:
@@ -208,43 +320,54 @@ class SponsrDumper:
                 _CLEANUP and dest_tmp.unlink(missing_ok=True)
 
     def _mpd_process(self, *, mpd: Path, dest: Path, prefer_video: VideoPreference):
+        video, audio = self._mpd_parse(mpd)
+        self._media_process(video, audio, dest=dest, prefer_video=prefer_video, work_dir=mpd.parent)
 
-        dest_tmp = (mpd.parent / 'tmp').absolute()
+    def _media_process(
+            self,
+            video: dict,
+            audio: dict,
+            *,
+            dest: Path,
+            prefer_video: VideoPreference,
+            work_dir: Path | None = None,
+    ):
+        dest_tmp = ((work_dir or dest.parent) / 'tmp').absolute()
         dest_tmp.mkdir(parents=True, exist_ok=True)
 
-        def download_all(urls: list[tuple[str, str]], *, suffix: str):
+        def download_all(urls: list[tuple[str, str]], *, suffix: str, label: str):
 
+            total = len(urls)
             for idx, (url, range) in enumerate(urls, 1):
                 file_dest = dest_tmp / f'{idx:>05}_{suffix}{dest.suffix}'
                 self._download_file(url, dest=file_dest, prefer_video=prefer_video, range=range)
+                progress(label, idx, total)
 
         try:
-            video, audio = self._mpd_parse(mpd)
-
             videos = video.get(prefer_video.frame) or (video[list(video.keys())[-1]] if video else [])
             audios = audio.get(prefer_video.sound) or (audio[list(audio.keys())[-1]] if audio else [])
 
             LOGGER.debug(f'Found: video {len(videos)}; audio {len(audios)}.')
 
-            download_all(videos, suffix='vid')
+            download_all(videos, suffix='vid', label='video')
 
-            f_video = ''
+            inputs = []
             if videos:
                 LOGGER.info('  Joining video chunks ...')
-                f_video = self._concat_chunks(src=dest_tmp, suffix='vid')
+                inputs.append(self._concat_chunks(src=dest_tmp, suffix='vid'))
 
-            download_all(audios, suffix='aud')
+            download_all(audios, suffix='aud', label='audio')
 
-            f_audio = ''
             if audios:
                 LOGGER.info('  Joining audio chunks ...')
-                f_audio = self._concat_chunks(src=dest_tmp, suffix='aud')
+                inputs.append(self._concat_chunks(src=dest_tmp, suffix='aud'))
 
-            if videos or audios:
-                # join video + audio
+            if inputs:
+                # join video + audio (only the streams that are actually present)
                 LOGGER.info('  Compiling final video ...')
+                args_in = ' '.join(f'-i "{src}"' for src in inputs)
                 call(
-                    f'ffmpeg -i "{f_video}" -i "{f_audio}" -c copy {shlex.quote(str(dest))}',
+                    f'ffmpeg {args_in} -c copy {shlex.quote(str(dest))}',
                     cwd=dest_tmp,
                 )
 
@@ -336,14 +459,18 @@ class SponsrDumper:
             if 'video' in attr_src and (file_id := parse_qs(urlparse(attr_src).query).get('video_id')):
                 # workaround bogus links like /post/video/?video_id=xxx?poster_id=yyy
                 file_id = file_id[0].partition('?')[0]
-                url_mpd = f'https://kinescope.io/{file_id}/master.mpd'
 
-                LOGGER.debug(f'Expected mpd url: {url_mpd}')
+                # prefer the kinescope embed url from 'src' — it yields a signed (HLS/DASH) manifest;
+                # fall back to the legacy unsigned master.mpd when no embed id is present
+                embed_url = self._kinescope_embed_url(iframe.get('src'))
+                file_path = embed_url or f'https://kinescope.io/{file_id}/master.mpd'
+
+                LOGGER.debug(f'Video source url: {file_path}')
 
                 video.append({
                     'file_id': file_id,
                     'file_title': f'{post_title}.mp4',
-                    'file_path': url_mpd,
+                    'file_path': file_path,
                     'file_type': FileType.VIDEO,
                 })
 

@@ -1,5 +1,9 @@
 # sponsrdump changelog
 
+### Unreleased
+* ** Исправлена ошибка 403 при скачивании видео: добавлена поддержка подписанных HLS-манифестов (m3u8) kinescope.
+* ++ Добавлено отображение прогресса при скачивании сегментов видео/аудио.
+
 ### v0.2.0 [2026-03-30]
 * ++ Added support for attachments (e.g. pdf) download (closes #18).
 * ++ CLI. Add --filter option with regexp support (see #16).

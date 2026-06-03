@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 from contextlib import chdir
 from pathlib import Path
 from shutil import copyfileobj
@@ -10,6 +11,17 @@ from .exceptions import SponsrDumperError
 
 PATH_BASE = Path(__file__).parent.absolute()
 LOGGER = logging.getLogger('sponsrdump')
+
+
+def progress(label: str, current: int, total: int, *, stream=sys.stderr):
+    """Render a single self-overwriting progress line, e.g. '  video: 123/914 (13.5%)'."""
+    if not total:
+        return
+
+    percent = round(100 * current / total, 1)
+    end = '\n' if current >= total else ''
+    stream.write(f'\r  {label}: {current}/{total} ({percent}%)   {end}')
+    stream.flush()
 
 
 def call(cmd: str, *, cwd: Path, capture_out: bool = True):
