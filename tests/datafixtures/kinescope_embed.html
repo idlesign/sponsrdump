@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Kinescope Player</title></head>
+<body>
+<div id="player"></div>
+<script>
+var playerOptions = {"playlist":[{"sources":{"hls":{"q0":"https://kinescope.io/25df393d-09bf-43a3-b466-7d222c6ce9b9/master.m3u8?audio_only=1&expires=1780640928&sign=7b17afd553c3c390","segments":"fmp4","selector":{"params":{"audio":"lang","quality":"quality"},"qualityMap":{"360":"360p","480":"480p","720":"720p"}},"src":"https://kinescope.io/25df393d-09bf-43a3-b466-7d222c6ce9b9/master.m3u8?expires=1780640928&sign=7b17afd553c3c390"},"shakahls":{"src":"https://kinescope.io/25df393d-09bf-43a3-b466-7d222c6ce9b9/master.m3u8?expires=1780640928&sign=7b17afd553c3c390"}},"id":"25df393d-09bf-43a3-b466-7d222c6ce9b9","title":"KZS_V_323.mp4","description":"Video description"}],"autoplay":false};
+window.kinescopePlayerFactory.create(playerOptions);
+</script>
+</body>
+</html>
