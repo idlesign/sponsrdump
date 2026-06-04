@@ -7,3 +7,4 @@ Created by Igor `idle sign` Starikov.
 
 * Mikhail Kucherenko — <https://github.com/SnipGhost>
 * Ruslan Makhin — <https://github.com/WiRight>
+* Aleksandr Seliverstov — <https://github.com/seliverstov>
