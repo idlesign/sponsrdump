@@ -1,0 +1,17 @@
+#EXTM3U
+#EXT-X-VERSION:6
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-TARGETDURATION:6
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-MAP:URI="https://edge-msk-1.kinescopecdn.net/videos/869b5dec/assets/019e7bce/360p.mp4?kinescope_project_id=d4e65216",BYTERANGE="771@0"
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:4.004,
+#EXT-X-BYTERANGE:279499@771
+https://edge-msk-1.kinescopecdn.net/videos/869b5dec/assets/019e7bce/360p.mp4?kinescope_project_id=d4e65216&kcd=AAAAAABAr0A
+#EXTINF:4.004,
+#EXT-X-BYTERANGE:486524@280270
+https://edge-msk-1.kinescopecdn.net/videos/869b5dec/assets/019e7bce/360p.mp4?kinescope_project_id=d4e65216&kcd=AAAAAABAr0A
+#EXTINF:4.004,
+#EXT-X-BYTERANGE:543574@766794
+https://edge-msk-1.kinescopecdn.net/videos/869b5dec/assets/019e7bce/360p.mp4?kinescope_project_id=d4e65216&kcd=AAAAAABAr0A
+#EXT-X-ENDLIST
