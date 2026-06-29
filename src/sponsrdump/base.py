@@ -20,7 +20,7 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, truncate_filename, call, concat_files, convert_text_to_video, progress
+from .utils import LOGGER, call, concat_files, convert_text_to_video, progress, truncate_filename
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
