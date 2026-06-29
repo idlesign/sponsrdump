@@ -40,6 +40,8 @@ def main(*arguments: str | None) -> None:
         '--no-images', help='Не следует скачивать изображения', action='store_true')
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
+    parser.add_argument(
+        '--filename-max-len', help='Максимальная длина имени файла. 0 — без ограничения.', type=int, default=None)
 
     args = parser.parse_args(arguments or None)
 
@@ -71,7 +73,8 @@ def main(*arguments: str | None) -> None:
         images=not args.no_images,
         attaches=not args.no_attach,
         text=False if args.no_text else args.text_fmt.lower(),
-        text_to_video=args.text_to_video
+        text_to_video=args.text_to_video,
+        filename_max_len=args.filename_max_len,
     )
 
 
