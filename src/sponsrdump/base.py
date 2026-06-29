@@ -20,7 +20,7 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, call, concat_files, convert_text_to_video, progress
+from .utils import LOGGER, truncate_filename, call, concat_files, convert_text_to_video, progress
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
@@ -611,6 +611,7 @@ class SponsrDumper:
         text: bool | str = True,
         text_to_video: bool = True,
         prefer_video: VideoPreference | None = None,
+        filename_max_len: int | None = None,
     ):
         prefer_video = prefer_video or VideoPreference()
 
@@ -679,6 +680,8 @@ class SponsrDumper:
                         file_type = file_info['file_type']
 
                         filename = func_filename(post_info, file_info)
+                        if filename_max_len is not None:
+                            filename = truncate_filename(filename, max_len=filename_max_len)
                         dest_filename = dest / filename
 
                         if filepath := file_info['file_path']:
@@ -706,7 +709,7 @@ class SponsrDumper:
 
                                 text_to_video_src_filename = TextConverter.spawn(
                                     converter_alias_md
-                                ).dump(file_info['__content'], dest=dest_filename)
+                                ).dump(file_info['__content'], dest=dest_filename, max_len=filename_max_len)
 
                                 convert_text_to_video(text_to_video_src_filename)
 
@@ -717,7 +720,7 @@ class SponsrDumper:
 
                                 dest_filename = TextConverter.spawn(
                                     converter_alias
-                                ).dump(file_info['__content'], dest=dest_filename)
+                                ).dump(file_info['__content'], dest=dest_filename, max_len=filename_max_len)
 
                             filename = dest_filename.name
 

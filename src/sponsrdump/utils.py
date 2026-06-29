@@ -10,6 +10,7 @@ from textwrap import wrap
 from .exceptions import SponsrDumperError
 
 PATH_BASE = Path(__file__).parent.absolute()
+
 LOGGER = logging.getLogger('sponsrdump')
 
 
@@ -118,3 +119,14 @@ def concat_files(*, src: Path, suffix: str, target_name: str) -> Path:
                 source.unlink()
 
     return target
+
+def truncate_filename(filename: str, max_len: int = 200) -> str:
+    """Truncate *filename* to *max_len* characters preserving its extension."""
+    if len(filename) <= max_len:
+        return filename
+    stem = Path(filename).stem
+    suffix = Path(filename).suffix
+    available = max_len - len(suffix)
+    if available <= 0:
+        return filename[:max_len]
+    return stem[:available] + suffix
