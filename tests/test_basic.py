@@ -381,7 +381,10 @@ def test_dump_long_title(auth_file, tmp_path, response_mock, datafix_read):
         dumper = SponsrDumper(url)
         dumper.search()
         dest = tmp_path / 'dump'
-        dumper.dump(dest, text='html', audio=False, video=False, images=False, text_to_video=False, filename_max_len=200)
+        dumper.dump(
+            dest, text='html', audio=False, video=False,
+            images=False, text_to_video=False, filename_max_len=200,
+        )
         assert dest.exists()
         files = list(dest.iterdir())
         assert len(files) == 1
@@ -392,7 +395,7 @@ def test_dump_long_title(auth_file, tmp_path, response_mock, datafix_read):
         conf_file = tmp_path / 'sponsrdump.json'
         assert conf_file.exists()
         data = json.loads(conf_file.read_text())
-        stored_name = list(data['dumped'].values())[0]
+        stored_name = next(iter(data['dumped'].values()))
         assert stored_name == fname
 
 
