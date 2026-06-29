@@ -124,8 +124,9 @@ def truncate_filename(filename: str, max_len: int = 200) -> str:
     """Truncate *filename* to *max_len* characters preserving its extension."""
     if len(filename) <= max_len:
         return filename
-    stem = Path(filename).stem
-    suffix = Path(filename).suffix
+    path = Path(filename)
+    stem = path.stem
+    suffix = path.suffix
     available = max_len - len(suffix)
     if available <= 0:
         return filename[:max_len]
