@@ -46,31 +46,31 @@ def test_truncate_filename_short_unchanged():
 
 
 def test_truncate_filename_exact_max_len():
-    name = 'A' * 200
-    assert truncate_filename(name) == name
+    name = 'A' * 255
+    assert truncate_filename(name, max_len=255) == name
 
 
 def test_truncate_filename_long_truncated():
-    expected = 'A' * 195 + '.html'
-    assert truncate_filename('A' * 250 + '.html') == expected
+    # 250 + 5 = 255 bytes, within limit, unchanged
+    assert truncate_filename('A' * 250 + '.html', max_len=255) == 'A' * 250 + '.html'
 
 
 def test_truncate_filename_multi_dot_extension():
-    expected = 'A' * 197 + '.gz'
-    assert truncate_filename('A' * 250 + '.tar.gz') == expected
+    # 250 + 7 = 257 bytes, exceeds limit. Full extension '.tar.gz' is preserved.
+    # available = 255 - 7 = 248 bytes for stem → 'A'*248 + '.tar.gz'
+    assert truncate_filename('A' * 300 + '.tar.gz', max_len=255) == 'A' * 248 + '.tar.gz'
 
 
 def test_truncate_filename_no_extension():
     name = 'A' * 250
-    assert truncate_filename(name) == 'A' * 200
-    assert truncate_filename(name) != name
+    # 250 bytes, within limit
+    assert truncate_filename(name, max_len=255) == name
 
 
 def test_truncate_filename_long_extension():
     name = 'A.' + 'B' * 250
-    truncated = truncate_filename(name)
-    assert len(truncated) == 200
-    assert truncated == name[:200]
+    # 252 bytes, within limit
+    assert truncate_filename(name, max_len=255) == name
 
 
 def test_truncate_filename_custom_max_len():

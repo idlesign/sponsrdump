@@ -13,6 +13,7 @@ PATH_BASE = Path(__file__).parent.absolute()
 
 LOGGER = logging.getLogger('sponsrdump')
 
+MAX_FILENAME_LENGTH = 255
 
 def progress(label: str, current: int, total: int, *, stream=sys.stderr):
     """Render a single self-overwriting progress line, e.g. '  video: 123/914 (13.5%)'."""
@@ -120,14 +121,20 @@ def concat_files(*, src: Path, suffix: str, target_name: str) -> Path:
 
     return target
 
-def truncate_filename(filename: str, max_len: int = 200) -> str:
-    """Truncate *filename* to *max_len* characters preserving its extension."""
-    if len(filename) <= max_len:
+def truncate_filename(filename: str, max_len: int = MAX_FILENAME_LENGTH) -> str:
+    """Truncate *filename* to at most *max_len* **bytes** preserving its extension."""
+    encoded = filename.encode('utf-8')
+    if len(encoded) <= max_len:
         return filename
+
     path = Path(filename)
-    stem = path.stem
-    suffix = path.suffix
-    available = max_len - len(suffix)
-    if available <= 0:
-        return filename[:max_len]
-    return stem[:available] + suffix
+    # Use all suffixes as the full extension (e.g. '.tar.gz' for 'archive.tar.gz')
+    suffix = ''.join(path.suffixes)
+    stem = filename[: -len(suffix)] if suffix else filename
+    max_stem_bytes = max_len - len(suffix.encode('utf-8'))
+
+    if max_stem_bytes <= 0:
+        return encoded[:max_len].decode('utf-8', 'ignore')
+
+    truncated_stem = stem.encode('utf-8')[:max_stem_bytes].decode('utf-8', 'ignore')
+    return truncated_stem + suffix

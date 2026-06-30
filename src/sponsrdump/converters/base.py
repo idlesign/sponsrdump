@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import ClassVar, TypeVar
 
-from ..utils import truncate_filename
+from ..utils import MAX_FILENAME_LENGTH, truncate_filename
 
 TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
 
@@ -19,10 +19,9 @@ class TextConverter:
     def _convert(self, value: str) -> str:
         raise NotImplementedError
 
-    def dump(self, value: str, *, dest: Path, max_len: int | None = None) -> Path:
+    def dump(self, value: str, *, dest: Path) -> Path:
         target = dest.with_suffix(f'.{self.alias}')
-        if max_len is not None:
-            target = target.parent / truncate_filename(target.name, max_len=max_len)
+        target = target.parent / truncate_filename(target.name, max_len=MAX_FILENAME_LENGTH)
 
         with target.open('w') as f:
             f.write(self._convert(value))

@@ -351,7 +351,7 @@ def test_dump_func_filename_custom(remote_data, tmp_path, response_mock):
 
 
 def test_dump_long_title(auth_file, tmp_path, response_mock, datafix_read):
-    """Post with title > 200 chars: file must be created with truncated name,
+    """Post with title > 255 bytes: file must be created with truncated name,
     and the name in sponsrdump.json must match the filesystem."""
     url = 'https://sponsr.ru/test_project'
     project_id = '248'
@@ -383,14 +383,14 @@ def test_dump_long_title(auth_file, tmp_path, response_mock, datafix_read):
         dest = tmp_path / 'dump'
         dumper.dump(
             dest, text='html', audio=False, video=False,
-            images=False, text_to_video=False, filename_max_len=200,
+            images=False, text_to_video=False,
         )
         assert dest.exists()
         files = list(dest.iterdir())
         assert len(files) == 1
         fname = files[0].name
         assert '.html' in fname
-        assert len(fname) <= 200
+        assert len(fname.encode('utf-8')) <= 255
         # Verify JSON consistency
         conf_file = tmp_path / 'sponsrdump.json'
         assert conf_file.exists()
