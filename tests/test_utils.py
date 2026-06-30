@@ -56,9 +56,10 @@ def test_truncate_filename_long_truncated():
 
 
 def test_truncate_filename_multi_dot_extension():
-    # 250 + 7 = 257 bytes, exceeds limit. Full extension '.tar.gz' is preserved.
-    # available = 255 - 7 = 248 bytes for stem → 'A'*248 + '.tar.gz'
-    assert truncate_filename('A' * 300 + '.tar.gz', max_len=255) == 'A' * 248 + '.tar.gz'
+    # 300 + 7 = 307 bytes, exceeds limit. Only last suffix '.gz' is preserved.
+    # stem = 'A'*300 + '.tar' (304 bytes), available = 255 - 3 = 252 bytes for stem
+    # truncated stem = 'A'*252 → result = 'A'*252 + '.gz'
+    assert truncate_filename('A' * 300 + '.tar.gz', max_len=255) == 'A' * 252 + '.gz'
 
 
 def test_truncate_filename_no_extension():

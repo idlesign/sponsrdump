@@ -128,9 +128,8 @@ def truncate_filename(filename: str, max_len: int = MAX_FILENAME_LENGTH) -> str:
         return filename
 
     path = Path(filename)
-    # Use all suffixes as the full extension (e.g. '.tar.gz' for 'archive.tar.gz')
-    suffix = ''.join(path.suffixes)
-    stem = filename[: -len(suffix)] if suffix else filename
+    stem = path.stem
+    suffix = path.suffix
     max_stem_bytes = max_len - len(suffix.encode('utf-8'))
 
     if max_stem_bytes <= 0:

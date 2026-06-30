@@ -21,8 +21,8 @@ class TextConverter:
 
     def dump(self, value: str, *, dest: Path) -> Path:
         target = dest.with_suffix(f'.{self.alias}')
-        target = target.parent / truncate_filename(target.name, max_len=MAX_FILENAME_LENGTH)
-
+        target = target.parent / target.name
+        
         with target.open('w') as f:
             f.write(self._convert(value))
 
