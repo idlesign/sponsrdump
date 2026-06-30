@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import ClassVar, TypeVar
 
+from sponsrdump.utils import MAX_FILENAME_LENGTH, truncate_filename
+
 TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
 
 
@@ -19,7 +21,7 @@ class TextConverter:
 
     def dump(self, value: str, *, dest: Path) -> Path:
         target = dest.with_suffix(f'.{self.alias}')
-        target = target.parent / target.name
+        target = target.parent / truncate_filename(target.name, max_len=MAX_FILENAME_LENGTH)
         
         with target.open('w') as f:
             f.write(self._convert(value))
