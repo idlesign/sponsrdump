@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import ClassVar, TypeVar
 
-from ..utils import MAX_FILENAME_LENGTH, truncate_filename
-
 TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
 
 
