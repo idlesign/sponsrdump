@@ -350,6 +350,55 @@ def test_dump_func_filename_custom(remote_data, tmp_path, response_mock):
         assert any('custom_' in f.name for f in files)
 
 
+def test_dump_long_title(auth_file, tmp_path, response_mock, datafix_read):
+    """Post with title > 255 bytes: file must be created with truncated name,
+    and the name in sponsrdump.json must match the filesystem."""
+    url = 'https://sponsr.ru/test_project'
+    project_id = '248'
+    project_html = datafix_read('project.html')
+    long_title = 'A' * 250
+    posts_response = {
+        'response': {
+            'rows': [{
+                'post_id': '123',
+                'level_id': '1',
+                'post_date': '2024-01-01',
+                'post_title': long_title,
+                'post_text': '<p>Test content</p>',
+                'post_url': '/post/123',
+                'tags': [],
+                'files': [],
+            }],
+            'rows_count': 1,
+        }
+    }
+    posts_json = json.dumps(posts_response)
+    rules = [
+        f'GET {url} -> 200 :{project_html}',
+        f'GET https://sponsr.ru/project/{project_id}/more-posts/?offset=0 -> 200 :{posts_json}',
+    ]
+    with response_mock(rules):
+        dumper = SponsrDumper(url)
+        dumper.search()
+        dest = tmp_path / 'dump'
+        dumper.dump(
+            dest, text='html', audio=False, video=False,
+            images=False, text_to_video=False,
+        )
+        assert dest.exists()
+        files = list(dest.iterdir())
+        assert len(files) == 1
+        fname = files[0].name
+        assert '.html' in fname
+        assert len(fname.encode('utf-8')) <= 255
+        # Verify JSON consistency
+        conf_file = tmp_path / 'sponsrdump.json'
+        assert conf_file.exists()
+        data = json.loads(conf_file.read_text())
+        stored_name = next(iter(data['dumped'].values()))
+        assert stored_name == fname
+
+
 @pytest.mark.parametrize(('iframe_attr', 'iframe_value', 'expected_id'), [
     ('data-url', '/post/video/?video_id=test123', 'test123'),
     ('src', '/post/video/?video_id=legacy123', 'legacy123'),

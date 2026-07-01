@@ -71,7 +71,7 @@ def main(*arguments: str | None) -> None:
         images=not args.no_images,
         attaches=not args.no_attach,
         text=False if args.no_text else args.text_fmt.lower(),
-        text_to_video=args.text_to_video
+        text_to_video=args.text_to_video,
     )
 
 

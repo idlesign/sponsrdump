@@ -20,7 +20,7 @@ from requests.cookies import cookiejar_from_dict
 
 from .converters import MarkdownConverter, TextConverter
 from .exceptions import SponsrDumperError
-from .utils import LOGGER, call, concat_files, convert_text_to_video, progress
+from .utils import LOGGER, MAX_FILENAME_LENGTH, call, concat_files, convert_text_to_video, progress, truncate_filename
 
 RE_FILENAME_INVALID = re.compile(r'[:?"/<>\\|*]')
 RE_PROJECT_ID = re.compile(r'"project_id":\s*(\d+)\s*,')
@@ -678,7 +678,10 @@ class SponsrDumper:
                         LOGGER.info(f'{msg_prefix} Downloading {msg_postfix}  ...')
                         file_type = file_info['file_type']
 
-                        filename = func_filename(post_info, file_info)
+                        filename = truncate_filename(
+                            func_filename(post_info, file_info),
+                            max_len=MAX_FILENAME_LENGTH,
+                        )
                         dest_filename = dest / filename
 
                         if filepath := file_info['file_path']:
