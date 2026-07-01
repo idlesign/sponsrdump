@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import ClassVar, TypeVar
 
-from sponsrdump.utils import MAX_FILENAME_LENGTH, truncate_filename
+from ..utils import MAX_FILENAME_LENGTH, truncate_filename
 
 TypeTextConverter = TypeVar('TypeTextConverter', bound='TextConverter')
 
