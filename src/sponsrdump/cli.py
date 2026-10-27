@@ -51,7 +51,8 @@ def main(*arguments: str | None) -> None:
 
     def filterer(post_info: dict) -> bool:
         for key in ['post_title', 'post_id', 'post_text', 'post_url']:
-            result = match_value(post_info[key], rule=filter_rule)
+            val = str(post_info.get(key) or '')
+            result = match_value(val, rule=filter_rule)
             if result:
                 return True
         return False
