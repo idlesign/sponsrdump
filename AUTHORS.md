@@ -9,3 +9,4 @@ Created by Igor `idle sign` Starikov.
 * Ruslan Makhin — <https://github.com/WiRight>
 * Aleksandr Seliverstov — <https://github.com/seliverstov>
 * Mihail Vorobyev — <https://github.com/viklover>
+* zencd — <https://github.com/zencd>
