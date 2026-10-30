@@ -40,6 +40,8 @@ def main(*arguments: str | None) -> None:
         '--no-images', help='Не следует скачивать изображения', action='store_true')
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
+    parser.add_argument(
+        '--list', help='Перечислить посты не скачивая', action='store_true')
 
     args = parser.parse_args(arguments or None)
 
@@ -64,16 +66,19 @@ def main(*arguments: str | None) -> None:
         filter_func = lambda post_info: match_value(post_info['post_title'], rule=filter_rule)  # noqa: E731
 
     dumper.search(func_filter=filter_func)
-    dumper.dump(
-        args.to,
-        prefer_video=VideoPreference(frame=args.prefer_video),
-        audio=not args.no_audio,
-        video=not args.no_video,
-        images=not args.no_images,
-        attaches=not args.no_attach,
-        text=False if args.no_text else args.text_fmt.lower(),
-        text_to_video=args.text_to_video,
-    )
+    if args.list:
+        dumper.list_posts()
+    else:
+        dumper.dump(
+            args.to,
+            prefer_video=VideoPreference(frame=args.prefer_video),
+            audio=not args.no_audio,
+            video=not args.no_video,
+            images=not args.no_images,
+            attaches=not args.no_attach,
+            text=False if args.no_text else args.text_fmt.lower(),
+            text_to_video=args.text_to_video,
+        )
 
 
 if __name__ == '__main__':

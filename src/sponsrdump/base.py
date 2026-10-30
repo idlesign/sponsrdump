@@ -598,6 +598,16 @@ class SponsrDumper:
 
         return found
 
+    def list_posts(self):
+        collected = self._collected
+        for i, post in enumerate(collected):
+            url = post['post_url']
+            url = url if url.startswith('http') else f'{self._url_base}{url}'
+            date_str = post['post_date'][0:10] # like 2026-10-22
+            print()
+            print(f'{date_str} {post['post_title']}')
+            print(url)
+
     def dump(
         self,
         dest: str | Path,
