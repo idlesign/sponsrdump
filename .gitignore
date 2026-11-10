@@ -3,3 +3,4 @@ sponsrdump.json
 dump/
 dist/
 .venv*
+*.lock
