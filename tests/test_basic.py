@@ -316,6 +316,28 @@ def test_dump_http_error_handling(remote_data, tmp_path, response_mock):
             dumper.dump(dest, text=False, audio=False, video=False, images=True)
 
 
+def test_dump_http_404_skipped(remote_data, tmp_path, response_mock, caplog):
+    rules = [*remote_data.rules, "GET https://example.com/error.jpg -> 404 :Not Found"]
+
+    with response_mock(rules):
+        dumper = SponsrDumper(remote_data.url)
+        dumper.search()
+        post = dumper._collected[0]
+        post["__files"]["images"] = [
+            {
+                "file_id": "missing_image",
+                "file_title": "missing.jpg",
+                "file_path": "https://example.com/error.jpg",
+                "file_type": FileType.IMAGE,
+            }
+        ]
+
+        dumper.dump(tmp_path / "dump", text=False, audio=False, video=False, images=True)
+
+    assert "f_missing_image" not in dumper._dumped
+    assert "Not found (404)" in caplog.text
+
+
 def test_conf_save(auth_file, tmp_path):
     dumper = SponsrDumper('https://sponsr.ru/test')
     dumper._dumped = {'f_123': 'test.txt'}

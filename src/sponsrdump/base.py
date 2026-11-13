@@ -694,8 +694,13 @@ class SponsrDumper:
                                     prefer_video=prefer_video
                                 )
 
-                            except HTTPError:
-                                LOGGER.debug('%s', pformat(file_info, indent=2))
+                            except HTTPError as error:
+                                LOGGER.debug("%s", pformat(file_info, indent=2))
+
+                                if error.response is not None and error.response.status_code == 404:
+                                    LOGGER.warning("%s Not found (404). Skipped %s", msg_prefix, msg_postfix)
+                                    continue
+
                                 raise
 
                         if file_type is FileType.TEXT and text:
