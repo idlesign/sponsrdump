@@ -1,5 +1,8 @@
 # sponsrdump changelog
 
+### Unreleased
+* ** Files unavailable for download (404) are now skipped with a warning instead of crashing the whole dump (close #24).
+
 ### v0.3.0 [2026-09-22]
 * ++ Добавлено отображение прогресса при скачивании сегментов видео/аудио.
 * ** Исправлена ошибка 403 при скачивании видео: добавлена поддержка подписанных HLS-манифестов (m3u8) kinescope.
