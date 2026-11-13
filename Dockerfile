@@ -12,5 +12,5 @@ RUN uv tool install --force -e .
 
 RUN uvx sponsrdump --help
 
-VOLUME ["/dump"]
+WORKDIR /data
 CMD ["/bin/bash"]

@@ -100,12 +100,14 @@ $ make run
 $ uvx sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
 ```
 
-Можно и без ``make`` и ``shell``, в данном примере монтируем auth и json файлы и каталог ``dump``, чтобы сохранять данные вне контейнера:
+Можно и без ``make`` и ``shell``. В данном примере в контейнер монтируется текущая директория, чтобы сохранять данные вне контейнера:
 
 ```shell
 $ docker build -t sponsrdump .
-$ docker run -it -v $(pwd)/sponsrdump_auth.txt:/sponsrdump_auth.txt -v $(pwd)/sponsrdump.json:/sponsrdump.json -v $(pwd)/dump:/dump sponsrdump uvx sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
+$ docker run -it -v $(pwd):/data sponsrdump uvx sponsrdump "https://sponsr.ru/uzhukoffa_lessons/" --title "Урок 309" --prefer-video 640x360
 ```
+
+Файлы ``sponsrdump_auth.txt``, ``sponsrdump.json`` и каталог ``dump/`` будут читаться и создаваться в текущей директории. Монтируется именно директория, а не отдельные файлы: при монтировании несуществующего на хосте файла Docker создаёт вместо него директорию, и приложение не сможет работать с конфигурацией.
 
 ## Для разработки
 
