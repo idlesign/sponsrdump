@@ -476,3 +476,18 @@ def test_collect_posts_multiple_pages(auth_file, response_mock, project_html):
         dumper = SponsrDumper(url)
         collected = dumper._collect_posts(project_id=project_id)
         assert len(collected) == 2
+
+
+def test_dump_dry_run(remote_data, tmp_path, response_mock, capsys):
+    with response_mock(remote_data.rules):
+        dumper = SponsrDumper(remote_data.url)
+        dumper.search()
+
+        dest = tmp_path / "dump"
+        dumper.dump(dest, dry_run=True)
+
+    out = capsys.readouterr().out
+
+    assert "Test Post" in out
+    assert not dest.exists()
+    assert not (tmp_path / "sponsrdump.json").exists()

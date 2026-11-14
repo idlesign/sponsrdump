@@ -4,7 +4,7 @@ import shlex
 import shutil
 from collections import defaultdict
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from enum import Enum
 from pathlib import Path
 from pprint import pformat
@@ -611,7 +611,15 @@ class SponsrDumper:
         text: bool | str = True,
         text_to_video: bool = True,
         prefer_video: VideoPreference | None = None,
+        dry_run: bool = False,
     ):
+        """Dumps the collected posts.
+
+        :param dry_run: If True, nothing is downloaded or written; matched posts
+            are printed out instead.
+
+        """
+
         prefer_video = prefer_video or VideoPreference()
 
         LOGGER.info(f'Start dump using preference: {prefer_video} ...')
@@ -627,7 +635,9 @@ class SponsrDumper:
         )
 
         dest = Path(dest).absolute()
-        dest.mkdir(parents=True, exist_ok=True)
+
+        if not dry_run:
+            dest.mkdir(parents=True, exist_ok=True)
 
         collected = self._collected
         if reverse:
@@ -641,7 +651,7 @@ class SponsrDumper:
         text and realms.append('text')
         attaches and realms.append('attaches')
 
-        with self._configuration():
+        with nullcontext() if dry_run else self._configuration():
 
             post_idx = 0
             posts_total = len(collected)
@@ -652,6 +662,10 @@ class SponsrDumper:
                 file_idx = 0
                 post_idx += 1
                 post_info['__idx'] = post_idx
+
+                if dry_run:
+                    print(f"{post_info['post_date']}  {post_info['post_title']}\n{post_info['post_url']}\n")
+                    continue
 
                 msg_prefix = f'[{idx}/{posts_total} {round(100 * idx / posts_total, 1)}%] '
 

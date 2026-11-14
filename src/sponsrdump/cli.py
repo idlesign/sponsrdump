@@ -40,6 +40,8 @@ def main(*arguments: str | None) -> None:
         '--no-images', help='Не следует скачивать изображения', action='store_true')
     parser.add_argument(
         '--text-to-video', help='Следует ли создать видео с текстом статьи', action='store_true')
+    parser.add_argument(
+        '--dry-run', help='Ничего не скачивать, лишь вывести отобранные посты', action='store_true')
 
     args = parser.parse_args(arguments or None)
 
@@ -73,6 +75,7 @@ def main(*arguments: str | None) -> None:
         attaches=not args.no_attach,
         text=False if args.no_text else args.text_fmt.lower(),
         text_to_video=args.text_to_video,
+        dry_run=args.dry_run,
     )
 
 
