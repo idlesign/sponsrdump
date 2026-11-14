@@ -1,6 +1,6 @@
 # sponsrdump changelog
 
-### Unreleased
+### v0.4.0 [2026-11-14]
 * ++ Added dry run mode (dry_run option, --dry-run CLI flag): matched posts are listed without downloading (close #28).
 * ** Files unavailable for download (404) are now skipped with a warning instead of crashing the whole dump (close #24).
 
